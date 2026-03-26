@@ -95,6 +95,19 @@ jobs:
             echo "WARNING: ssh-keyscan failed for ${REMOTE_HOST}; continuing with StrictHostKeyChecking=no." >&2
           }
 
+      - name: Test SSH connectivity
+        run: |
+          echo "Testing SSH connectivity to ${{ secrets.REMOTE_HOST }}..."
+          ssh -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "echo 'SSH connection successful'" || {
+            echo "ERROR: Cannot connect to remote host ${{ secrets.REMOTE_HOST }} via SSH. Check:" >&2
+            echo "  - Is the EC2 instance running?" >&2
+            echo "  - Is the public IP correct in REMOTE_HOST secret?" >&2
+            echo "  - Is port 22 open in the security group (allow from 0.0.0.0/0)?" >&2
+            echo "  - Does the instance have a public IP assigned?" >&2
+            echo "  - Is the SSH_PRIVATE_KEY correct and matches the public key on the VM?" >&2
+            exit 1
+          }
+
       - name: Copy image to remote host
         run: |
           scp -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no kubeclass-web-lab.tar.gz ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz
