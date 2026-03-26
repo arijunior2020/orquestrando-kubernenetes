@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KubeClass Web Lab</title>
+    <link rel="stylesheet" href="/vendor/xterm.css" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="backdrop backdrop-one"></div>
+    <div class="backdrop backdrop-two"></div>
+    <div class="toast-stack" id="app-alerts" aria-live="polite" aria-atomic="true"></div>
+
+    <section class="gate-screen" id="gate-screen">
+      <div class="gate-shell">
+        <div class="gate-copy">
+          <p class="eyebrow">Ambiente prático de orquestração</p>
+          <h1>KubeClass Web Lab</h1>
+          <p class="hero-text" id="gate-description">
+            Entre com as credenciais já cadastradas pelo instrutor para liberar o
+            terminal real, o workspace declarativo e a trilha completa da disciplina.
+          </p>
+
+          <div class="hero-actions">
+            <a class="ghost-button link-button" href="/admin">Abrir painel admin</a>
+          </div>
+
+          <div class="gate-stats">
+            <article class="hero-stat">
+              <span class="hero-label">Formato</span>
+              <strong id="gate-course-format"></strong>
+            </article>
+            <article class="hero-stat">
+              <span class="hero-label">Modelo</span>
+              <strong id="gate-course-model"></strong>
+            </article>
+            <article class="hero-stat">
+              <span class="hero-label">Objetivo</span>
+              <strong>Prática guiada, terminal real e desafio final avaliável</strong>
+            </article>
+          </div>
+        </div>
+
+        <form class="gate-card" id="access-form" novalidate>
+          <div class="panel-header">
+            <p class="eyebrow">Acesso acadêmico</p>
+            <h2>Entrar na turma</h2>
+          </div>
+
+          <p class="gate-lead">
+            Somente alunos cadastrados pelo instrutor e vinculados a uma turma valida
+            conseguem abrir o ambiente pratico.
+          </p>
+
+          <div class="field-grid">
+            <label class="field-group">
+              <span>E-mail</span>
+              <input
+                id="access-email"
+                name="email"
+                type="email"
+                placeholder="seu.email@exemplo.com"
+                autocomplete="username"
+                required
+              />
+            </label>
+
+            <label class="field-group">
+              <span>Senha</span>
+              <input
+                id="access-password"
+                name="password"
+                type="password"
+                placeholder="Sua senha cadastrada"
+                autocomplete="current-password"
+                required
+              />
+            </label>
+          </div>
+
+          <label class="field-group">
+            <span>Código da turma</span>
+            <input
+              id="access-cohort"
+              name="cohortCode"
+              type="text"
+              placeholder="Ex.: k8s-mar-2026"
+              autocomplete="off"
+              required
+            />
+          </label>
+
+          <button class="primary-button wide" id="access-submit-button" type="submit">
+            Entrar no ambiente
+          </button>
+          <p class="status-text muted" id="access-status">
+            Use e-mail, senha e código da turma para entrar no ambiente prático.
+          </p>
+        </form>
+      </div>
+    </section>
+
+    <div class="page-shell" id="app-shell" hidden>
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Ambiente web para a disciplina</p>
+          <h1>KubeClass Web Lab</h1>
+          <p class="hero-text" id="hero-description"></p>
+
+          <div class="hero-actions">
+            <a class="ghost-button link-button" href="/admin">Abrir painel admin</a>
+          </div>
+
+          <div class="hero-overview">
+            <article class="hero-stat">
+              <span class="hero-label">Formato</span>
+              <strong id="course-format"></strong>
+            </article>
+            <article class="hero-stat">
+              <span class="hero-label">Modelo</span>
+              <strong id="course-model"></strong>
+            </article>
+            <article class="hero-stat">
+              <span class="hero-label">Operacao</span>
+              <strong>Labs guiados, validacao e nota final</strong>
+            </article>
+          </div>
+        </div>
+
+        <div class="hero-rail">
+          <section class="hero-panel hero-account">
+            <div class="account-header">
+              <span class="hero-label">Workspace do aluno</span>
+              <div class="account-actions">
+                <span class="mode-pill local" id="connection-pill">Modo local</span>
+                <button class="ghost-button button-compact" id="logout-button" type="button">
+                  Trocar aluno
+                </button>
+              </div>
+            </div>
+            <h2 id="learner-name">Nenhum aluno conectado</h2>
+            <p class="hero-text compact" id="learner-meta">
+              Identifique um aluno e uma turma para registrar rascunhos, progresso
+              e submissões no servidor.
+            </p>
+            <div class="hero-progress">
+              <div class="progress-row">
+                <span>Progresso do percurso</span>
+                <strong id="progress-label">0%</strong>
+              </div>
+              <div class="progress-bar">
+                <span id="progress-fill"></span>
+              </div>
+            </div>
+          </section>
+
+          <section class="hero-panel session-card">
+            <div class="panel-header">
+              <p class="eyebrow">Sessão acadêmica</p>
+              <h2>Ambiente liberado</h2>
+            </div>
+            <p class="hero-text compact">
+              O terminal real, o manifesto declarativo e as submissões ficam
+              associados ao aluno conectado. Troque a sessão antes de iniciar
+              uma nova prática.
+            </p>
+            <div class="session-badges">
+              <article class="session-badge">
+                <span class="hero-label">Turma ativa</span>
+                <strong id="session-cohort-badge">-</strong>
+              </article>
+              <article class="session-badge">
+                <span class="hero-label">Modo</span>
+                <strong>Terminal real + YAML</strong>
+              </article>
+            </div>
+          </section>
+        </div>
+      </header>
+
+      <section class="dashboard-strip" id="dashboard-strip"></section>
+      <section class="capability-strip" id="capability-strip"></section>
+      <nav class="app-nav card" id="student-nav" aria-label="Navegação do ambiente do aluno">
+        <a class="app-nav-link" data-app-route="overview" href="/app/overview">Visão geral</a>
+        <a class="app-nav-link" data-app-route="practice" href="/app/practice">Prática guiada</a>
+        <a class="app-nav-link" data-app-route="workspace" href="/app/workspace">Workspace</a>
+        <a class="app-nav-link" data-app-route="challenge" href="/app/challenge">Desafio final</a>
+      </nav>
+
+      <div class="workspace-layout">
+        <aside class="timeline-panel">
+          <div class="panel-header">
+            <p class="eyebrow">Trilha cronologica</p>
+            <h2>Encontros</h2>
+          </div>
+          <div id="timeline"></div>
+        </aside>
+
+        <main class="content-panel">
+          <section class="card route-hero-card student-route-hero-card" id="student-route-hero">
+            <p class="eyebrow" id="student-route-eyebrow">Visão geral</p>
+            <h2 id="student-route-title">Página do aluno</h2>
+            <p class="hero-text compact" id="student-route-copy">
+              Use o menu para alternar entre estudo, prática no terminal, workspace declarativo e desafio final.
+            </p>
+          </section>
+
+          <section class="session-header card" id="student-session-header" data-app-card="overview practice workspace">
+            <div>
+              <p class="eyebrow" id="session-order"></p>
+              <h2 id="session-title"></h2>
+            </div>
+            <div class="session-pill" id="session-duration"></div>
+          </section>
+
+          <section class="session-grid" id="student-overview-grid" data-app-card="overview">
+            <article class="card" id="session-focus"></article>
+            <article class="card" id="session-deliverables"></article>
+          </section>
+
+          <section class="card studio-card" id="student-practice-studio" data-app-card="practice">
+            <div class="studio-heading">
+              <div>
+                <p class="eyebrow">Studio do laboratorio</p>
+                <h2>Terminal real + roteiro guiado</h2>
+              </div>
+              <div class="studio-actions">
+                <span class="studio-pill">Pratica no cluster</span>
+                <button class="ghost-button button-compact" id="clear-terminal-button" type="button">
+                  Limpar tela
+                </button>
+              </div>
+            </div>
+
+            <p class="studio-copy">
+              Use o terminal como ambiente principal da aula para executar o lab em um namespace
+              isolado do aluno. O manifesto YAML e a validacao ficam logo abaixo como trilha de
+              entrega declarativa.
+            </p>
+
+            <div class="studio-layout">
+              <section class="terminal-stage">
+                <div class="terminal-runtime">
+                  <div class="runtime-header">
+                    <div>
+                      <p class="eyebrow">Runtime real</p>
+                      <h3>Cluster do aluno</h3>
+                    </div>
+                    <button class="primary-button" id="open-runtime-button" type="button">
+                      Abrir terminal real
+                    </button>
+                  </div>
+
+                  <p class="status-text muted" id="runtime-status">
+                    Conecte um aluno para provisionar namespace, toolbox pod e terminal do lab.
+                  </p>
+
+                  <div class="runtime-meta" id="runtime-meta"></div>
+
+                  <p class="runtime-context" id="runtime-context">
+                    O terminal opera no namespace provisionado pela plataforma. O editor abaixo
+                    continua sendo a trilha declarativa da entrega.
+                  </p>
+
+                  <div class="terminal-toolbar">
+                    <span>Shell interativa do laboratorio</span>
+                    <span class="terminal-mode-label" id="terminal-mode-label">Sem sessao ativa</span>
+                  </div>
+
+                  <div class="terminal-shell" id="terminal-shell"></div>
+                </div>
+              </section>
+
+              <aside class="runbook-panel">
+                <div class="panel-header compact">
+                  <p class="eyebrow">Roteiro de execucao</p>
+                  <h3>Passos guiados do terminal</h3>
+                </div>
+
+                <p class="runbook-intro" id="runbook-intro"></p>
+                <div id="command-list" class="command-list"></div>
+
+                <section class="terminal-log-card">
+                  <div class="panel-header compact">
+                    <p class="eyebrow">Diario do lab</p>
+                    <h3>Passos registrados</h3>
+                  </div>
+                  <div class="terminal-log" id="terminal-log"></div>
+                </section>
+              </aside>
+            </div>
+          </section>
+
+          <section class="session-grid" id="student-theory-grid" data-app-card="overview practice">
+            <article class="card" id="theory-topics"></article>
+            <article class="card" id="practice-tasks"></article>
+          </section>
+
+          <section class="card lab-card" id="student-lab-card" data-app-card="practice workspace">
+            <div class="lab-header">
+              <div>
+                <p class="eyebrow">Laboratorio guiado</p>
+                <h3 id="lab-title"></h3>
+              </div>
+            </div>
+            <p class="lab-scenario" id="lab-scenario"></p>
+            <div class="lab-columns">
+              <div id="lab-objectives"></div>
+              <div id="lab-hints"></div>
+            </div>
+          </section>
+
+          <section class="workspace-stack" id="student-workspace-stack" data-app-card="workspace">
+            <section class="card editor-card">
+              <div class="panel-header">
+                <p class="eyebrow">Workspace declarativo</p>
+                <h2>Manifest editor</h2>
+              </div>
+
+              <div class="editor-topbar">
+                <p class="status-text muted" id="editor-status">
+                  Rascunhos ficam salvos no navegador ate a primeira conexao do aluno.
+                </p>
+              </div>
+
+              <div class="editor-callout" id="editor-callout">
+                Este template vem com pequenos erros intencionais para o aluno corrigir antes da validacao.
+              </div>
+
+              <textarea id="solution-editor" spellcheck="false"></textarea>
+
+              <div class="editor-actions">
+                <button class="ghost-button" id="load-template-button" type="button">
+                  Carregar template
+                </button>
+                <button class="ghost-button" id="save-workspace-button" type="button">
+                  Salvar rascunho
+                </button>
+                <button class="primary-button" id="validate-button" type="button">
+                  Validar entrega
+                </button>
+                <button class="ghost-button" id="reset-button" type="button">
+                  Restaurar rascunho
+                </button>
+              </div>
+            </section>
+
+            <aside class="workspace-rail">
+              <section class="card validation-card">
+                <div class="panel-header">
+                  <p class="eyebrow">Validacao automatica</p>
+                  <h2>Checklist</h2>
+                </div>
+                <div id="validation-summary" class="validation-summary">
+                  Nenhuma validacao executada ainda.
+                </div>
+                <div id="validation-results"></div>
+              </section>
+
+              <section class="card workflow-card">
+                <div class="panel-header">
+                  <p class="eyebrow">Fluxo recomendado</p>
+                  <h2>Como usar a plataforma</h2>
+                </div>
+                <div class="workflow-list" id="workflow-steps"></div>
+              </section>
+            </aside>
+          </section>
+
+          <section class="card challenge-brief-card" id="challenge-brief" data-app-card="challenge">
+            <div class="panel-header">
+              <p class="eyebrow">Entrega avaliável</p>
+              <h2>Briefing do desafio final</h2>
+            </div>
+            <p class="hero-text compact" id="challenge-brief-copy">
+              O desafio final consolida frontend, backend, rede, configuração e leitura operacional.
+            </p>
+            <div class="hero-actions">
+              <button class="primary-button" id="challenge-open-button" type="button">
+                Abrir encontro final
+              </button>
+            </div>
+          </section>
+
+          <section class="card rubric-card" id="challenge-rubric" data-app-card="challenge"></section>
+        </main>
+
+        <aside class="editor-panel legacy-panel" aria-hidden="true">
+          <section class="card editor-card legacy-card">
+            <div class="panel-header">
+              <p class="eyebrow">Workspace legado</p>
+              <h2>Painel substituido</h2>
+            </div>
+            <p class="status-text muted">
+              O editor, a validacao e o terminal agora ficam centralizados no studio principal do lab.
+            </p>
+          </section>
+        </aside>
+      </div>
+    </div>
+    <script src="/vendor/xterm.js"></script>
+    <script src="/vendor/xterm-addon-fit.js"></script>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

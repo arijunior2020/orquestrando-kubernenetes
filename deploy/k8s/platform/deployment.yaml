@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubeclass-web
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: kubeclass-web
+  template:
+    metadata:
+      labels:
+        app: kubeclass-web
+    spec:
+      serviceAccountName: kubeclass-web
+      containers:
+        - name: kubeclass-web
+          image: kubeclass-web-lab:pilot
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "3000"
+            - name: DB_PATH
+              value: "/app/data/kubeclass.db"
+            - name: LAB_RUNTIME_ENABLED
+              value: "true"
+            - name: LAB_NAMESPACE_PREFIX
+              value: "kubeclass"
+            - name: TOOLBOX_IMAGE
+              value: "bitnami/kubectl:latest"
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: kubeclass-data
+              mountPath: /app/data
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: kubeclass-data
+          persistentVolumeClaim:
+            claimName: kubeclass-data

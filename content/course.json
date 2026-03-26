@@ -1,0 +1,456 @@
+{
+  "productName": "KubeClass Web Lab",
+  "headline": "Ambiente web para uma disciplina pratica de Orquestracao de Kubernetes",
+  "description": "Um MVP inspirado no fluxo do Girus Labs para ser hospedado na web, com trilha cronologica, aulas com teoria + pratica, validacao de laboratorios e evolucao para execucao real no cluster da disciplina.",
+  "format": {
+    "totalMeetings": 6,
+    "durationPerMeeting": "4h",
+    "model": "5 encontros com 2h teoria + 2h pratica e 1 encontro final com 4h de desafio"
+  },
+  "capabilities": [
+    "Trilha cronologica completa da disciplina.",
+    "Laboratorios guiados com templates YAML e validacao automatica.",
+    "Rascunho salvo no navegador para cada aluno.",
+    "Desafio final com rubrica de avaliacao.",
+    "Base para evoluir para namespaces reais por aluno no cluster hospedado."
+  ],
+  "meetings": [
+    {
+      "id": "encontro-1",
+      "order": 1,
+      "title": "Fundamentos, arquitetura e primeiros recursos",
+      "duration": "2h teoria + 2h pratica",
+      "focus": "Introduzir Kubernetes, arquitetura de cluster, objetos basicos e a disciplina.",
+      "theoryTopics": [
+        "O que o Kubernetes resolve e onde ele entra em uma stack moderna.",
+        "Arquitetura: control plane, nodes, kubelet, API Server, etcd e scheduler.",
+        "Fluxo com `kubectl`, declaracao desejada e reconciliacao.",
+        "Boas praticas para leitura de YAML e organizacao de namespaces."
+      ],
+      "practiceTasks": [
+        "Criar um namespace dedicado da turma.",
+        "Subir um Pod simples com imagem nginx.",
+        "Aplicar, inspecionar e remover recursos com `kubectl`."
+      ],
+      "deliverables": [
+        "Namespace isolado para os exercicios.",
+        "Pod funcional com imagem publica.",
+        "Checklist basico de comandos do dia."
+      ],
+      "lab": {
+        "id": "lab-1",
+        "title": "Kickoff do cluster",
+        "scenario": "Seu primeiro laboratorio prepara o ambiente da turma com isolamento basico e um Pod inicial para validar o fluxo declarativo.",
+        "objectives": [
+          "Criar o namespace `team-dev`.",
+          "Criar o Pod `nginx-lab` dentro do namespace correto.",
+          "Usar uma imagem nginx publica."
+        ],
+        "commands": [
+          {
+            "command": "kubectl create namespace team-dev",
+            "note": "Cria o espaco logico do laboratorio."
+          },
+          {
+            "command": "kubectl get pods -n team-dev",
+            "note": "Confere o estado do Pod depois do apply."
+          },
+          {
+            "command": "kubectl describe pod nginx-lab -n team-dev",
+            "note": "Ajuda a interpretar eventos e condicoes do recurso."
+          }
+        ],
+        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: team-devs\n---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-lab\n  namespace: team-devs\nspec:\n  containers:\n    - name: nginx\n      image: ngnix:stable",
+        "validationId": "lab-1",
+        "hints": [
+          "Se o namespace estiver no manifesto, o Pod ja pode nascer no destino correto.",
+          "O nome do Pod e o namespace fazem parte da validacao automatica."
+        ]
+      }
+    },
+    {
+      "id": "encontro-2",
+      "order": 2,
+      "title": "Deployments, replicas e exposicao com Services",
+      "duration": "2h teoria + 2h pratica",
+      "focus": "Ensinar como sair de um Pod isolado para workloads replicados e expostos dentro do cluster.",
+      "theoryTopics": [
+        "ReplicaSet, Deployment e rollout controlado.",
+        "Labels, selectors e a ligacao entre Pods e Services.",
+        "Escalabilidade horizontal basica com replicas.",
+        "Troubleshooting inicial com `describe`, `logs` e `get events`."
+      ],
+      "practiceTasks": [
+        "Criar um Deployment com 3 replicas.",
+        "Expor o workload com um Service ClusterIP.",
+        "Testar seletores e rollout de imagem."
+      ],
+      "deliverables": [
+        "Deployment replicado.",
+        "Service interno do cluster.",
+        "Registro das evidencias do rollout."
+      ],
+      "lab": {
+        "id": "lab-2",
+        "title": "API replicada e exposta internamente",
+        "scenario": "Agora o time quer deixar uma API simples preparada para trafego interno, com replicas e Service dedicado.",
+        "objectives": [
+          "Criar o Deployment `api-demo` com 3 replicas.",
+          "Expor o Deployment via Service `api-demo-svc`.",
+          "Usar labels coerentes entre Pods e Service."
+        ],
+        "commands": [
+          {
+            "command": "kubectl rollout status deploy/api-demo -n apps",
+            "note": "Acompanha a estabilidade do rollout."
+          },
+          {
+            "command": "kubectl get svc -n apps",
+            "note": "Confirma a criacao e a porta do Service."
+          },
+          {
+            "command": "kubectl logs deploy/api-demo -n apps",
+            "note": "Valida se os containers iniciaram sem erro."
+          }
+        ],
+        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: apps\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api-demo\n  namespace: apps\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api-demos\n  template:\n    metadata:\n      labels:\n        app: api-demos\n    spec:\n      containers:\n        - name: api\n          image: nginx:stable\n          ports:\n            - containerPort: 80\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api-demo-service\n  namespace: apps\nspec:\n  selector:\n    app: api-demos\n  ports:\n    - port: 80\n      targetPort: 8080",
+        "validationId": "lab-2",
+        "hints": [
+          "O Service precisa selecionar `app: api-demo`.",
+          "Use `port: 80` e `targetPort: 80` para manter o exercicio simples."
+        ]
+      }
+    },
+    {
+      "id": "encontro-3",
+      "order": 3,
+      "title": "Networking, Ingress e entrega da aplicacao",
+      "duration": "2h teoria + 2h pratica",
+      "focus": "Conectar Services, DNS interno, Ingress e fluxo de exposicao HTTP no cluster.",
+      "theoryTopics": [
+        "Service discovery e DNS interno.",
+        "ClusterIP, NodePort, LoadBalancer e quando usar cada um.",
+        "Ingress controller, regras, host e paths.",
+        "Atualizacao e rollback com impacto minimo."
+      ],
+      "practiceTasks": [
+        "Criar Service para um frontend web.",
+        "Publicar o frontend com Ingress e host dedicado.",
+        "Validar a rota e revisar o fluxo de exposicao."
+      ],
+      "deliverables": [
+        "Service funcional do frontend.",
+        "Ingress com host configurado.",
+        "Mapa de fluxo entre cliente, Ingress e Pod."
+      ],
+      "lab": {
+        "id": "lab-3",
+        "title": "Publicando a primeira aplicacao web",
+        "scenario": "A aplicacao web do time precisa ser entregue para consumo HTTP, com rota amigavel e ponto unico de entrada.",
+        "objectives": [
+          "Criar o Service `webapp-service`.",
+          "Criar o Ingress `webapp-ingress`.",
+          "Usar o host `kubeclass.local` na regra HTTP."
+        ],
+        "commands": [
+          {
+            "command": "kubectl get ingress -n web",
+            "note": "Mostra a regra publicada."
+          },
+          {
+            "command": "kubectl describe ingress webapp-ingress -n web",
+            "note": "Ajuda a revisar host, path e backend."
+          },
+          {
+            "command": "kubectl get endpoints webapp-service -n web",
+            "note": "Confere se o Service encontrou Pods para rotear."
+          }
+        ],
+        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: web\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: webapp\n  namespace: web\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: webapp\n  template:\n    metadata:\n      labels:\n        app: webapp\n    spec:\n      containers:\n        - name: webapp\n          image: nginx:stable\n          ports:\n            - containerPort: 80\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: webapp-svc\n  namespace: web\nspec:\n  selector:\n    app: webapp\n  ports:\n    - port: 80\n      targetPort: 80\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: webapp-ingress\n  namespace: web\nspec:\n  rules:\n    - host: kubeclass.locals\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: webapp-svc\n                port:\n                  number: 80",
+        "validationId": "lab-3",
+        "hints": [
+          "No Ingress, use o backend apontando para `webapp-service`.",
+          "A validacao verifica especificamente o host `kubeclass.local`."
+        ]
+      }
+    },
+    {
+      "id": "encontro-4",
+      "order": 4,
+      "title": "Configuracao, segredos, probes e recursos",
+      "duration": "2h teoria + 2h pratica",
+      "focus": "Preparar workloads para operacao realista com configuracao externa, health checks e limites.",
+      "theoryTopics": [
+        "ConfigMap e Secret como desacoplamento de configuracao.",
+        "Env vars, volumes e consumo de configuracao em Pods.",
+        "Readiness, liveness e startup probe.",
+        "Requests, limits e o impacto no agendamento."
+      ],
+      "practiceTasks": [
+        "Criar ConfigMap e Secret para uma API.",
+        "Consumir as configuracoes no Deployment.",
+        "Adicionar readiness/liveness e recursos minimos."
+      ],
+      "deliverables": [
+        "Workload configuravel sem hardcode.",
+        "Probes e recursos declarados.",
+        "Checklist de validacao operacional."
+      ],
+      "lab": {
+        "id": "lab-4",
+        "title": "API pronta para operacao",
+        "scenario": "A API agora precisa ficar minimamente preparada para operacao: configuracao externa, probes e controle de recursos.",
+        "objectives": [
+          "Criar `ConfigMap` e `Secret` com nomes definidos.",
+          "Ligar a configuracao ao Deployment.",
+          "Adicionar readiness, liveness, requests e limits."
+        ],
+        "commands": [
+          {
+            "command": "kubectl describe deploy config-api -n config",
+            "note": "Mostra env vars, probes e recursos do Deployment."
+          },
+          {
+            "command": "kubectl get configmap,secret -n config",
+            "note": "Confere os artefatos de configuracao."
+          },
+          {
+            "command": "kubectl get pod -n config -w",
+            "note": "Ajuda a observar o ciclo do Pod com probes."
+          }
+        ],
+        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: config\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: app-configs\n  namespace: config\ndata:\n  APP_MODE: \"dev\"\n---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: app-secrets\n  namespace: config\ntype: Opaque\nstringData:\n  API_KEY: \"trocar-antes-de-produzir\"\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: config-api\n  namespace: config\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: config-api\n  template:\n    metadata:\n      labels:\n        app: config-api\n    spec:\n      containers:\n        - name: api\n          image: nginx:stable\n          ports:\n            - containerPort: 80\n          env:\n            - name: APP_MODE\n              valueFrom:\n                configMapKeyRef:\n                  name: app-configs\n                  key: APP_MODE\n            - name: API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: app-secrets\n                  key: API_KEY\n          readinessProbe:\n            httpGet:\n              path: /\n              port: 80\n          resources:\n            requests:\n              cpu: \"100m\"\n              memory: \"128Mi\"\n            limits:\n              cpu: \"250m\"\n              memory: \"256Mi\"",
+        "validationId": "lab-4",
+        "hints": [
+          "A validacao procura `configMapKeyRef` e `secretKeyRef` no manifesto.",
+          "Defina requests e limits no mesmo container da API."
+        ]
+      }
+    },
+    {
+      "id": "encontro-5",
+      "order": 5,
+      "title": "Stateful workloads, Jobs, observabilidade e revisao",
+      "duration": "2h teoria + 2h pratica",
+      "focus": "Fechar o ciclo com workloads stateful, tarefas pontuais e revisao do que cai no desafio final.",
+      "theoryTopics": [
+        "Diferenca entre Deployment e StatefulSet.",
+        "VolumeClaimTemplates, headless Service e identidade de Pods.",
+        "Jobs, CronJobs e tarefas pontuais de manutencao.",
+        "Revisao geral da disciplina e criterios de avaliacao do desafio."
+      ],
+      "practiceTasks": [
+        "Criar um StatefulSet com persistencia declarativa.",
+        "Criar um headless Service para descoberta estavel.",
+        "Adicionar um Job de inicializacao do ambiente."
+      ],
+      "deliverables": [
+        "StatefulSet com volumeClaimTemplates.",
+        "Headless Service funcional.",
+        "Job de bootstrap do ambiente."
+      ],
+      "lab": {
+        "id": "lab-5",
+        "title": "Camada stateful e job de bootstrap",
+        "scenario": "O ambiente agora precisa de um componente stateful com identidade estavel e um Job de preparacao antes da liberacao da stack.",
+        "objectives": [
+          "Criar o StatefulSet `redis-cache`.",
+          "Criar o headless Service `redis-headless`.",
+          "Criar o Job `seed-cache`."
+        ],
+        "commands": [
+          {
+            "command": "kubectl get statefulset,pvc -n data",
+            "note": "Confere a camada persistente e os PVCs gerados."
+          },
+          {
+            "command": "kubectl get svc redis-headless -n data -o yaml",
+            "note": "Valida se o Service esta headless (`clusterIP: None`)."
+          },
+          {
+            "command": "kubectl get job -n data",
+            "note": "Monitora a execucao do Job de bootstrap."
+          }
+        ],
+        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: data\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: redis-headlesss\n  namespace: data\nspec:\n  clusterIP: Nones\n  selector:\n    app: redis-cache\n  ports:\n    - port: 6379\n      targetPort: 6379\n---\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: redis-cache\n  namespace: data\nspec:\n  serviceName: redis-headlesss\n  replicas: 1\n  selector:\n    matchLabels:\n      app: redis-cache\n  template:\n    metadata:\n      labels:\n        app: redis-cache\n    spec:\n      containers:\n        - name: redis\n          image: redis:7\n          ports:\n            - containerPort: 6379\n          volumeMounts:\n            - name: data\n              mountPath: /data\n  volumeClaimTemplates:\n    - metadata:\n        name: data\n      spec:\n        accessModes: [\"ReadWriteOnce\"]\n        resources:\n          requests:\n            storage: 1Gi\n---\napiVersion: batch/v1\nkind: Job\nmetadata:\n  name: seed-caches\n  namespace: data\nspec:\n  template:\n    spec:\n      restartPolicy: Never\n      containers:\n        - name: seed\n          image: busybox:1.36\n          command: [\"sh\", \"-c\", \"echo cache preparado\"]",
+        "validationId": "lab-5",
+        "hints": [
+          "No headless Service a chave critica e `clusterIP: None`.",
+          "O StatefulSet precisa referenciar o serviceName correto."
+        ]
+      }
+    },
+    {
+      "id": "encontro-6",
+      "order": 6,
+      "title": "Desafio final valendo a nota da disciplina",
+      "duration": "4h de desafio final",
+      "focus": "Consolidar tudo o que foi visto nos cinco encontros anteriores em uma entrega unica.",
+      "theoryTopics": [
+        "Briefing do desafio e regras de avaliacao.",
+        "Orientacoes de entrega, checkpoints e criterio de desempate."
+      ],
+      "practiceTasks": [
+        "Modelar a arquitetura final antes de escrever os manifests.",
+        "Entregar frontend, backend, servicos, Ingress e configuracoes.",
+        "Revisar probes, recursos e HPA antes da submissao."
+      ],
+      "deliverables": [
+        "Manifesto YAML unico ou em multiplos arquivos consolidados no editor.",
+        "Breve justificativa das decisoes tomadas.",
+        "Checklist de operacao preenchido antes da entrega."
+      ],
+      "lab": {
+        "id": "challenge-final",
+        "title": "Desafio Final: Plataforma de Pedidos",
+        "scenario": "Voce e a pessoa responsavel por publicar uma plataforma de pedidos com frontend, API e componentes de configuracao. O desafio fecha a disciplina e vale a nota final.",
+        "duration": "4h de execucao supervisionada",
+        "objectives": [
+          "Entregar manifests consistentes para uma aplicacao com frontend e backend.",
+          "Aplicar servicos, Ingress, probes, recursos, ConfigMap e Secret.",
+          "Demonstrar leitura operacional e organizacao dos manifests."
+        ],
+        "requirements": [
+          "Namespace `delivery-final` para isolar o ambiente.",
+          "Deployment `storefront` com 2 replicas e Service `storefront-svc`.",
+          "Deployment `orders-api` com 2 replicas e Service `orders-api-svc`.",
+          "ConfigMap `orders-config` e Secret `orders-secret` consumidos pela API.",
+          "Ingress `delivery-ingress` com host `delivery.local`.",
+          "Readiness e liveness probe no backend.",
+          "Requests e limits no frontend e no backend.",
+          "HPA `orders-api-hpa` para o backend."
+        ],
+        "deliverables": [
+          "Manifesto YAML unico ou em multiplos arquivos consolidados no editor.",
+          "Breve justificativa das decisoes tomadas.",
+          "Checklist de operacao preenchido antes da entrega."
+        ],
+        "rubric": [
+          {
+            "label": "Arquitetura basica e isolamento",
+            "weight": 25
+          },
+          {
+            "label": "Rede e exposicao da aplicacao",
+            "weight": 20
+          },
+          {
+            "label": "Configuracao e seguranca",
+            "weight": 20
+          },
+          {
+            "label": "Resiliencia e escalabilidade",
+            "weight": 25
+          },
+          {
+            "label": "Clareza operacional",
+            "weight": 10
+          }
+        ],
+        "commands": [
+          {
+            "command": "kubectl apply -f challenge.yaml",
+            "note": "Aplica todos os manifests do desafio final."
+          },
+          {
+            "command": "kubectl get deploy,svc,ingress,hpa -n delivery-final",
+            "note": "Confere o estado geral dos componentes."
+          },
+          {
+            "command": "kubectl describe deploy orders-api -n delivery-final",
+            "note": "Valida probes, recursos e variaveis da API."
+          },
+          {
+            "command": "kubectl rollout status deploy/storefront -n delivery-final",
+            "note": "Monitora a estabilidade do frontend."
+          }
+        ],
+        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: delivery-finals\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: storefront\n  namespace: delivery-finals\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: storefront\n  template:\n    metadata:\n      labels:\n        app: storefront\n    spec:\n      containers:\n        - name: storefront\n          image: nginx:stable\n          ports:\n            - containerPort: 80\n          resources:\n            requests:\n              cpu: \"100m\"\n              memory: \"128Mi\"\n            limits:\n              cpu: \"250m\"\n              memory: \"256Mi\"\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: storefront-service\n  namespace: delivery-finals\nspec:\n  selector:\n    app: storefront\n  ports:\n    - port: 80\n      targetPort: 80\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: orders-api\n  namespace: delivery-finals\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: orders-api\n  template:\n    metadata:\n      labels:\n        app: orders-api\n    spec:\n      containers:\n        - name: orders-api\n          image: nginx:stable\n          ports:\n            - containerPort: 80\n          env:\n            - name: APP_MODE\n              valueFrom:\n                configMapKeyRef:\n                  name: orders-configs\n                  key: APP_MODE\n            - name: API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: order-secret\n                  key: API_KEY\n          readinessProbe:\n            httpGet:\n              path: /\n              port: 80\n          livenessProbe:\n            httpGet:\n              path: /\n              port: 80\n          resources:\n            requests:\n              cpu: \"100m\"\n              memory: \"128Mi\"\n            limits:\n              cpu: \"250m\"\n              memory: \"256Mi\"\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: orders-api-service\n  namespace: delivery-finals\nspec:\n  selector:\n    app: orders-api\n  ports:\n    - port: 80\n      targetPort: 80\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: orders-configs\n  namespace: delivery-finals\ndata:\n  APP_MODE: \"dev\"\n---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: order-secret\n  namespace: delivery-finals\ntype: Opaque\nstringData:\n  API_KEY: \"delivery-secret\"\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: delivery-ingress\n  namespace: delivery-finals\nspec:\n  rules:\n    - host: delivery.locals\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: storefront-service\n                port:\n                  number: 80\n---\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: orders-api-scale\n  namespace: delivery-finals\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n    kind: Deployment\n    name: orders-api\n  minReplicas: 1\n  maxReplicas: 4\n  metrics:\n    - type: Resource\n      resource:\n        name: cpu\n        target:\n          type: Utilization\n          averageUtilization: 70",
+        "validationId": "challenge-final",
+        "hints": [
+          "Comece pelo Namespace e pelos dois Deployments para ganhar tracao.",
+          "Valide Service e Ingress antes de lapidar probes e HPA.",
+          "No backend, use env com `valueFrom` para ligar ConfigMap e Secret."
+        ]
+      }
+    }
+  ],
+  "challenge": {
+    "id": "challenge-final",
+    "title": "Desafio Final: Plataforma de Pedidos",
+    "scenario": "Voce e a pessoa responsavel por publicar uma plataforma de pedidos com frontend, API e componentes de configuracao. O desafio fecha a disciplina e vale a nota final.",
+    "duration": "4h de execucao supervisionada",
+    "objectives": [
+      "Entregar manifests consistentes para uma aplicacao com frontend e backend.",
+      "Aplicar servicos, Ingress, probes, recursos, ConfigMap e Secret.",
+      "Demonstrar leitura operacional e organizacao dos manifests."
+    ],
+    "requirements": [
+      "Namespace `delivery-final` para isolar o ambiente.",
+      "Deployment `storefront` com 2 replicas e Service `storefront-svc`.",
+      "Deployment `orders-api` com 2 replicas e Service `orders-api-svc`.",
+      "ConfigMap `orders-config` e Secret `orders-secret` consumidos pela API.",
+      "Ingress `delivery-ingress` com host `delivery.local`.",
+      "Readiness e liveness probe no backend.",
+      "Requests e limits no frontend e no backend.",
+      "HPA `orders-api-hpa` para o backend."
+    ],
+    "deliverables": [
+      "Manifesto YAML unico ou em multiplos arquivos consolidados no editor.",
+      "Breve justificativa das decisoes tomadas.",
+      "Checklist de operacao preenchido antes da entrega."
+    ],
+    "rubric": [
+      {
+        "label": "Arquitetura basica e isolamento",
+        "weight": 25
+      },
+      {
+        "label": "Rede e exposicao da aplicacao",
+        "weight": 20
+      },
+      {
+        "label": "Configuracao e seguranca",
+        "weight": 20
+      },
+      {
+        "label": "Resiliencia e escalabilidade",
+        "weight": 25
+      },
+      {
+        "label": "Clareza operacional",
+        "weight": 10
+      }
+    ],
+    "commands": [
+      {
+        "command": "kubectl apply -f challenge.yaml",
+        "note": "Aplica todos os manifests do desafio final."
+      },
+      {
+        "command": "kubectl get deploy,svc,ingress,hpa -n delivery-final",
+        "note": "Confere o estado geral dos componentes."
+      },
+      {
+        "command": "kubectl describe deploy orders-api -n delivery-final",
+        "note": "Valida probes, recursos e variaveis da API."
+      },
+      {
+        "command": "kubectl rollout status deploy/storefront -n delivery-final",
+        "note": "Monitora a estabilidade do frontend."
+      }
+    ],
+    "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: delivery-finals\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: storefront\n  namespace: delivery-finals\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: storefront\n  template:\n    metadata:\n      labels:\n        app: storefront\n    spec:\n      containers:\n        - name: storefront\n          image: nginx:stable\n          ports:\n            - containerPort: 80\n          resources:\n            requests:\n              cpu: \"100m\"\n              memory: \"128Mi\"\n            limits:\n              cpu: \"250m\"\n              memory: \"256Mi\"\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: storefront-service\n  namespace: delivery-finals\nspec:\n  selector:\n    app: storefront\n  ports:\n    - port: 80\n      targetPort: 80\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: orders-api\n  namespace: delivery-finals\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: orders-api\n  template:\n    metadata:\n      labels:\n        app: orders-api\n    spec:\n      containers:\n        - name: orders-api\n          image: nginx:stable\n          ports:\n            - containerPort: 80\n          env:\n            - name: APP_MODE\n              valueFrom:\n                configMapKeyRef:\n                  name: orders-configs\n                  key: APP_MODE\n            - name: API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: order-secret\n                  key: API_KEY\n          readinessProbe:\n            httpGet:\n              path: /\n              port: 80\n          livenessProbe:\n            httpGet:\n              path: /\n              port: 80\n          resources:\n            requests:\n              cpu: \"100m\"\n              memory: \"128Mi\"\n            limits:\n              cpu: \"250m\"\n              memory: \"256Mi\"\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: orders-api-service\n  namespace: delivery-finals\nspec:\n  selector:\n    app: orders-api\n  ports:\n    - port: 80\n      targetPort: 80\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: orders-configs\n  namespace: delivery-finals\ndata:\n  APP_MODE: \"dev\"\n---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: order-secret\n  namespace: delivery-finals\ntype: Opaque\nstringData:\n  API_KEY: \"delivery-secret\"\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: delivery-ingress\n  namespace: delivery-finals\nspec:\n  rules:\n    - host: delivery.locals\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: storefront-service\n                port:\n                  number: 80\n---\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: orders-api-scale\n  namespace: delivery-finals\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n    kind: Deployment\n    name: orders-api\n  minReplicas: 1\n  maxReplicas: 4\n  metrics:\n    - type: Resource\n      resource:\n        name: cpu\n        target:\n          type: Utilization\n          averageUtilization: 70",
+    "validationId": "challenge-final",
+    "hints": [
+      "Comece pelo Namespace e pelos dois Deployments para ganhar tracao.",
+      "Valide Service e Ingress antes de lapidar probes e HPA.",
+      "No backend, use env com `valueFrom` para ligar ConfigMap e Secret."
+    ]
+  },
+  "roadmap": [
+    "Fase 1: usar esta interface como LMS tecnico com validacao de YAML e acompanhamento de progresso.",
+    "Fase 2: conectar cada aluno a um namespace efemero no cluster hospedado com terminal web real.",
+    "Fase 3: transformar labs em definicoes versionadas, com turmas, notas e operacao academica completa."
+  ]
+}

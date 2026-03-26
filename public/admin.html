@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KubeClass Admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="backdrop backdrop-one"></div>
+    <div class="backdrop backdrop-two"></div>
+    <div class="toast-stack" id="admin-alerts" aria-live="polite" aria-atomic="true"></div>
+
+    <section class="gate-screen" id="admin-gate-screen">
+      <div class="gate-shell">
+        <div class="gate-copy">
+          <p class="eyebrow">Painel do instrutor</p>
+          <h1>KubeClass Admin</h1>
+          <p class="hero-text" id="admin-gate-copy">
+            Configure o primeiro acesso administrativo, autentique-se e então
+            gerencie turmas, alunos, progresso e nota final.
+          </p>
+
+          <div class="hero-actions">
+            <a class="ghost-button link-button" href="/">Voltar ao ambiente do aluno</a>
+          </div>
+
+          <div class="gate-stats">
+            <article class="hero-stat">
+              <span class="hero-label">Controle</span>
+              <strong>Turmas, alunos e evidências</strong>
+            </article>
+            <article class="hero-stat">
+              <span class="hero-label">Acesso</span>
+              <strong>Admin autenticado por sessão</strong>
+            </article>
+            <article class="hero-stat">
+              <span class="hero-label">Uso</span>
+              <strong>Cadastrar alunos antes de liberar a turma</strong>
+            </article>
+          </div>
+        </div>
+
+        <div class="gate-card-stack">
+          <form class="gate-card" id="admin-bootstrap-form" hidden novalidate>
+            <div class="panel-header">
+              <p class="eyebrow">Primeiro acesso</p>
+              <h2>Configurar admin</h2>
+            </div>
+
+            <p class="gate-lead">
+              Defina agora o usuário e a senha do instrutor. Eles ficarão salvos no banco local.
+            </p>
+
+            <label class="field-group">
+              <span>Usuário admin</span>
+              <input id="admin-bootstrap-username" type="text" autocomplete="username" required />
+            </label>
+
+            <label class="field-group">
+              <span>Senha</span>
+              <input id="admin-bootstrap-password" type="password" autocomplete="new-password" required />
+            </label>
+
+            <label class="field-group">
+              <span>Confirmar senha</span>
+              <input id="admin-bootstrap-confirm" type="password" autocomplete="new-password" required />
+            </label>
+
+            <button class="primary-button wide" id="admin-bootstrap-submit" type="submit">
+              Salvar primeiro acesso
+            </button>
+            <p class="status-text muted" id="admin-bootstrap-status">
+              Este passo acontece apenas na primeira vez que a plataforma é aberta.
+            </p>
+          </form>
+
+          <form class="gate-card" id="admin-login-form" hidden novalidate>
+            <div class="panel-header">
+              <p class="eyebrow">Acesso do instrutor</p>
+              <h2>Entrar no admin</h2>
+            </div>
+
+            <p class="gate-lead">
+              Use as credenciais administrativas para liberar o painel.
+            </p>
+
+            <label class="field-group">
+              <span>Usuário</span>
+              <input id="admin-login-username" type="text" autocomplete="username" required />
+            </label>
+
+            <label class="field-group">
+              <span>Senha</span>
+              <input id="admin-login-password" type="password" autocomplete="current-password" required />
+            </label>
+
+            <button class="primary-button wide" id="admin-login-submit" type="submit">
+              Entrar
+            </button>
+            <p class="status-text muted" id="admin-login-status">
+              Faça login para abrir o painel administrativo.
+            </p>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <div class="page-shell" id="admin-shell" hidden>
+      <header class="hero admin-hero">
+        <div class="hero-copy admin-hero-copy">
+          <p class="eyebrow">Painel do instrutor</p>
+          <h1>KubeClass Admin</h1>
+          <p class="hero-text">
+            Acompanhe a trilha completa da turma, veja quem concluiu os labs,
+            inspecione o histórico de submissões e lance a nota final da disciplina.
+          </p>
+
+          <div class="hero-actions">
+            <a class="ghost-button link-button" href="/">Voltar ao lab do aluno</a>
+            <button class="ghost-button button-compact" id="admin-logout-button" type="button">
+              Sair do admin
+            </button>
+          </div>
+
+          <div class="hero-overview admin-overview">
+            <article class="hero-stat">
+              <span class="hero-label">Alunos</span>
+              <strong id="admin-total-students">0</strong>
+            </article>
+            <article class="hero-stat">
+              <span class="hero-label">Trilha completa</span>
+              <strong id="admin-complete-students">0</strong>
+            </article>
+            <article class="hero-stat">
+              <span class="hero-label">Media final</span>
+              <strong id="admin-average-grade">-</strong>
+            </article>
+          </div>
+        </div>
+
+        <div class="hero-rail">
+          <section class="hero-panel admin-filter-card">
+            <div class="panel-header">
+              <p class="eyebrow">Recorte da turma</p>
+              <h2>Filtros e refresh</h2>
+            </div>
+
+            <label class="field-group">
+              <span>Turma</span>
+              <select id="admin-cohort-select"></select>
+            </label>
+
+            <label class="field-group">
+              <span>Buscar aluno</span>
+              <input
+                id="admin-search"
+                type="text"
+                placeholder="Filtrar por nome ou e-mail"
+                autocomplete="off"
+              />
+            </label>
+
+            <button class="primary-button wide" id="admin-refresh-button" type="button">
+              Atualizar painel
+            </button>
+            <p class="status-text muted" id="admin-status">
+              Carregando dados administrativos da turma.
+            </p>
+          </section>
+
+          <section class="hero-panel admin-cohort-card">
+            <div class="panel-header">
+              <p class="eyebrow">Foco atual</p>
+              <h2 id="admin-selected-cohort">Todas as turmas</h2>
+            </div>
+            <p class="hero-text compact" id="admin-selected-cohort-copy">
+              Selecione uma turma para inspecionar a execução dos encontros e lançar a nota final.
+            </p>
+            <div class="hero-progress">
+              <div class="progress-row">
+                <span>Prontos para nota</span>
+                <strong id="admin-ready-label">0%</strong>
+              </div>
+              <div class="progress-bar">
+                <span id="admin-ready-fill"></span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </header>
+
+      <section class="dashboard-strip admin-strip" id="admin-metric-strip"></section>
+
+      <nav class="admin-nav card" id="admin-nav" aria-label="Seções do painel administrativo">
+        <a class="admin-nav-link" data-admin-route="overview" href="/admin/overview">Visão geral</a>
+        <a class="admin-nav-link" data-admin-route="cohorts" href="/admin/cohorts">Turmas</a>
+        <a class="admin-nav-link" data-admin-route="students" href="/admin/students">Alunos</a>
+        <a class="admin-nav-link" data-admin-route="grading" href="/admin/grading">Notas</a>
+        <a class="admin-nav-link" data-admin-route="labs" href="/admin/labs">Labs</a>
+        <a class="admin-nav-link" data-admin-route="submissions" href="/admin/submissions">Submissões</a>
+      </nav>
+
+      <section class="card route-hero-card admin-route-hero-card" id="admin-route-hero">
+        <p class="eyebrow" id="admin-route-eyebrow">Visão geral</p>
+        <h2 id="admin-route-title">Painel administrativo</h2>
+        <p class="hero-text compact" id="admin-route-copy">
+          Navegue por páginas específicas para gerenciar turmas, alunos, notas e evidências da disciplina.
+        </p>
+      </section>
+
+      <section class="admin-management-grid" id="admin-management-grid">
+        <section
+          class="card admin-management-card admin-overview-card"
+          id="admin-overview-card"
+          data-admin-card="overview"
+        >
+          <div class="panel-header">
+            <p class="eyebrow">Resumo executivo</p>
+            <h2>Visão rápida da operação</h2>
+          </div>
+          <p class="hero-text compact" id="admin-overview-copy">
+            Use o menu acima para abrir páginas dedicadas de turmas, alunos, notas, labs e submissões.
+          </p>
+          <div class="overview-quick-grid" id="admin-overview-highlights"></div>
+        </section>
+
+        <section
+          class="card admin-management-card admin-create-cohort-card"
+          id="admin-section-cohorts"
+          data-admin-card="cohorts"
+        >
+          <div class="panel-header">
+            <p class="eyebrow">Cadastro de acesso</p>
+            <h2>Criar codigo da turma</h2>
+          </div>
+
+          <form id="admin-cohort-form" class="grading-form" novalidate>
+            <label class="field-group">
+              <span>Codigo da turma</span>
+              <input
+                id="admin-cohort-code"
+                type="text"
+                placeholder="Ex.: k8s-mar-2026"
+                autocomplete="off"
+              />
+            </label>
+
+            <label class="field-group">
+              <span>Titulo da turma</span>
+              <input
+                id="admin-cohort-title"
+                type="text"
+                placeholder="Ex.: Orquestracao Kubernetes - Marco 2026"
+                autocomplete="off"
+              />
+            </label>
+
+            <div class="form-actions">
+              <button class="primary-button wide" id="admin-cohort-submit" type="submit">
+                Salvar turma
+              </button>
+              <button
+                class="ghost-button wide"
+                id="admin-cohort-cancel"
+                type="button"
+                hidden
+              >
+                Cancelar edição
+              </button>
+            </div>
+            <p class="status-text muted" id="admin-cohort-status">
+              Somente codigos cadastrados aqui serao aceitos na entrada do aluno.
+            </p>
+          </form>
+
+          <div class="admin-manage-list" id="admin-cohort-manage-list"></div>
+          <div class="pagination-bar" id="admin-cohort-pagination"></div>
+        </section>
+
+        <section
+          class="card admin-management-card admin-create-student-card"
+          id="admin-section-student-access"
+          data-admin-card="students"
+        >
+          <div class="panel-header">
+            <p class="eyebrow">Cadastro de alunos</p>
+            <h2>Liberar acesso do estudante</h2>
+          </div>
+
+          <form id="admin-student-form" class="grading-form" novalidate>
+            <label class="field-group">
+              <span>Nome do aluno</span>
+              <input
+                id="admin-student-name"
+                type="text"
+                placeholder="Ex.: Maria Oliveira"
+                autocomplete="name"
+              />
+            </label>
+
+            <label class="field-group">
+              <span>E-mail do aluno</span>
+              <input
+                id="admin-student-email"
+                type="email"
+                placeholder="aluno@exemplo.com"
+                autocomplete="email"
+              />
+            </label>
+
+            <label class="field-group">
+              <span>Código da turma</span>
+              <input
+                id="admin-student-cohort"
+                type="text"
+                placeholder="Ex.: k8s-mar-2026"
+                autocomplete="off"
+              />
+            </label>
+
+            <label class="field-group">
+              <span>Senha inicial</span>
+              <input
+                id="admin-student-password"
+                type="password"
+                placeholder="Minimo de 6 caracteres"
+                autocomplete="new-password"
+              />
+            </label>
+
+            <div class="form-actions">
+              <button class="primary-button wide" id="admin-student-submit" type="submit">
+                Salvar aluno
+              </button>
+              <button
+                class="ghost-button wide"
+                id="admin-student-cancel"
+                type="button"
+                hidden
+              >
+                Cancelar edição
+              </button>
+            </div>
+            <p class="status-text muted" id="admin-student-status">
+              O aluno só conseguirá entrar na home se existir aqui e estiver vinculado à turma.
+            </p>
+          </form>
+        </section>
+      </section>
+
+      <div class="admin-layout" id="admin-layout">
+        <section
+          class="card admin-students-card"
+          id="admin-section-students"
+          data-admin-card="students grading labs submissions"
+        >
+          <div class="panel-header">
+            <p class="eyebrow">Visao da turma</p>
+            <h2>Alunos e progresso</h2>
+          </div>
+          <div class="admin-student-list" id="admin-student-list"></div>
+          <div class="pagination-bar" id="admin-student-pagination"></div>
+        </section>
+
+        <aside class="admin-detail-column" id="admin-detail-column">
+          <section
+            class="card admin-detail-card"
+            id="admin-student-detail"
+            data-admin-card="overview students grading labs submissions"
+          >
+            <div class="panel-header">
+              <p class="eyebrow">Detalhe do aluno</p>
+              <h2>Selecione um aluno</h2>
+            </div>
+            <p class="status-text muted">
+              Clique em um aluno da lista para abrir o detalhamento de labs, submissões e nota final.
+            </p>
+          </section>
+
+          <section class="card grading-card" id="admin-section-grading" data-admin-card="grading">
+            <div class="panel-header">
+              <p class="eyebrow">Lancamento</p>
+              <h2>Nota final da disciplina</h2>
+            </div>
+
+            <form id="admin-grade-form" class="grading-form" novalidate>
+              <label class="field-group">
+                <span>Nota final</span>
+                <input
+                  id="admin-grade-input"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="Ex.: 87.5"
+                />
+              </label>
+
+              <label class="field-group">
+                <span>Observacoes do instrutor</span>
+                <textarea
+                  id="admin-grade-notes"
+                  rows="5"
+                  placeholder="Comentarios, pendencias ou justificativa da nota."
+                ></textarea>
+              </label>
+
+              <button class="primary-button wide" id="admin-grade-submit" type="submit">
+                Salvar nota final
+              </button>
+              <p class="status-text muted" id="admin-grade-status">
+                Selecione um aluno para registrar a nota final.
+              </p>
+            </form>
+          </section>
+
+          <section class="card admin-labs-card" id="admin-section-labs" data-admin-card="labs">
+            <div class="panel-header">
+              <p class="eyebrow">Mapa dos encontros</p>
+              <h2>Status por laboratorio</h2>
+            </div>
+            <div class="admin-lab-list" id="admin-lab-list"></div>
+          </section>
+
+          <section
+            class="card admin-submissions-card"
+            id="admin-section-submissions"
+            data-admin-card="submissions"
+          >
+            <div class="panel-header">
+              <p class="eyebrow">Historico recente</p>
+              <h2>Submissoes</h2>
+            </div>
+            <div class="admin-submission-list" id="admin-submission-list"></div>
+            <div class="pagination-bar" id="admin-submission-pagination"></div>
+          </section>
+        </aside>
+      </div>
+    </div>
+
+    <dialog class="modal-dialog" id="admin-modal">
+      <form class="modal-panel" id="admin-modal-form" method="dialog" novalidate>
+        <button
+          class="modal-close ghost-button button-compact"
+          id="admin-modal-close"
+          type="button"
+          aria-label="Fechar modal"
+        >
+          Fechar
+        </button>
+
+        <div class="modal-header">
+          <p class="eyebrow" id="admin-modal-eyebrow">Ação</p>
+          <h2 id="admin-modal-title">Confirmar</h2>
+        </div>
+
+        <p class="modal-copy" id="admin-modal-copy"></p>
+        <div class="modal-body" id="admin-modal-body"></div>
+        <p class="status-text muted" id="admin-modal-status">
+          Revise os dados e confirme para continuar.
+        </p>
+
+        <div class="modal-actions" id="admin-modal-actions">
+          <button class="ghost-button" id="admin-modal-cancel" type="button">
+            Cancelar
+          </button>
+          <button class="primary-button" id="admin-modal-confirm" type="submit">
+            Confirmar
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <script type="module" src="/admin.js"></script>
+  </body>
+</html>

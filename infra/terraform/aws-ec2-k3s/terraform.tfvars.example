@@ -1,0 +1,24 @@
+aws_region          = "us-east-1"
+name_prefix         = "kubeclass"
+instance_type       = "m5a.2xlarge"
+root_volume_size_gb = 100
+
+# Nome exato do key pair criado na AWS.
+ssh_key_name = "REPLACE_WITH_KEY_PAIR_NAME"
+
+# Troque pelo seu IP publico atual.
+allowed_ssh_cidrs = ["REPLACE_WITH_YOUR_IP/32"]
+
+# Deixe vazio para nao expor a API do k3s.
+allowed_k8s_api_cidrs = []
+
+# Para o primeiro deploy, voce pode deixar em branco e usar o IP publico.
+domain_name         = ""
+route53_zone_id     = ""
+route53_record_name = "lab"
+
+tags = {
+  Owner   = "seu-nome"
+  Course  = "orquestracao-kubernetes"
+  Purpose = "pilot"
+}

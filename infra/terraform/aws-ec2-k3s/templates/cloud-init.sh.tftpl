@@ -1,0 +1,81 @@
+#!/bin/bash
+set -euxo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y curl ca-certificates jq unzip
+
+%{ if create_route53 ~}
+apt-get install -y awscli || true
+%{ endif ~}
+
+curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
+
+mkdir -p /home/ubuntu/.kube
+cp /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config
+chown -R ubuntu:ubuntu /home/ubuntu/.kube
+
+mkdir -p /opt/kubeclass
+
+cat >/opt/kubeclass/README <<'EOF'
+Bootstrap do piloto EC2 + k3s concluido.
+Use kubectl com:
+  sudo k3s kubectl get nodes
+EOF
+
+%{ if create_route53 ~}
+cat >/opt/kubeclass/update-dns.sh <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+
+PUBLIC_IP=$(curl -sS -H "X-aws-ec2-metadata-token: $${TOKEN}" \
+  http://169.254.169.254/latest/meta-data/public-ipv4)
+
+cat >/tmp/kubeclass-route53.json <<JSON
+{
+  "Comment": "Atualizacao automatica do DNS do piloto",
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "${route53_record_name}.${domain_name}",
+        "Type": "A",
+        "TTL": 60,
+        "ResourceRecords": [
+          { "Value": "$${PUBLIC_IP}" }
+        ]
+      }
+    }
+  ]
+}
+JSON
+
+aws route53 change-resource-record-sets \
+  --hosted-zone-id ${route53_zone_id} \
+  --change-batch file:///tmp/kubeclass-route53.json
+EOF
+
+chmod +x /opt/kubeclass/update-dns.sh
+
+cat >/etc/systemd/system/kubeclass-dns.service <<'EOF'
+[Unit]
+Description=Atualiza DNS do piloto no Route53
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/kubeclass/update-dns.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable kubeclass-dns.service
+systemctl start kubeclass-dns.service
+%{ endif ~}
