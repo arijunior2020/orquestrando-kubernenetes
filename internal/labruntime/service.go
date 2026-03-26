@@ -287,6 +287,12 @@ func (s *Service) ServeTerminal(response http.ResponseWriter, request *http.Requ
 		})
 	}()
 
+	defer func() {
+		if err := s.resetToolboxPod(request.Context(), session.Namespace); err != nil {
+			log.Printf("falha ao resetar toolbox pod apos fechamento do terminal: %v", err)
+		}
+	}()
+
 	select {
 	case err := <-readErrCh:
 		if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
@@ -470,6 +476,19 @@ func (s *Service) ensureToolboxPod(ctx context.Context, namespace, labID string)
 	}, metav1.CreateOptions{})
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("falha ao criar toolbox pod: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) resetToolboxPod(ctx context.Context, namespace string) error {
+	if !s.Enabled() {
+		return fmt.Errorf("runtime nao habilitado")
+	}
+
+	pods := s.clientset.CoreV1().Pods(namespace)
+	if err := pods.Delete(ctx, toolboxPodName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("falha ao deletar toolbox pod: %w", err)
 	}
 
 	return nil

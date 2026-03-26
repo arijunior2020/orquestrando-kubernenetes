@@ -79,6 +79,14 @@ jobs:
 
       - name: Setup SSH for remote deploy
         run: |
+          if [ -z "${{ secrets.REMOTE_HOST }}" ]; then
+            echo "ERROR: REMOTE_HOST is not set. Configure the secret REMOTE_HOST with the remote VM IP/hostname." >&2
+            exit 1
+          fi
+          if [ -z "${{ secrets.REMOTE_USER }}" ]; then
+            echo "ERROR: REMOTE_USER is not set. Configure the secret REMOTE_USER with the remote SSH user." >&2
+            exit 1
+          fi
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/kubeclass-pilot-key.pem
           chmod 600 ~/.ssh/kubeclass-pilot-key.pem
