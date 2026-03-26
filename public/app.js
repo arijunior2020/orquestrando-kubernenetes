@@ -444,7 +444,6 @@ const elements = {
   terminalModeLabel: document.querySelector("#terminal-mode-label"),
   runbookIntro: document.querySelector("#runbook-intro"),
   terminalShell: document.querySelector("#terminal-shell"),
-  loadTemplateButton: document.querySelector("#load-template-button"),
   saveWorkspaceButton: document.querySelector("#save-workspace-button"),
   validateButton: document.querySelector("#validate-button"),
   resetButton: document.querySelector("#reset-button"),
@@ -1888,13 +1887,6 @@ const attachEventListeners = () => {
     }
 
     handleCommandAction(button.dataset.commandIndex);
-  });
-
-  elements.loadTemplateButton.addEventListener("click", () => {
-    const lab = getActiveLab();
-    state.drafts[lab.id] = lab.starter;
-    elements.editor.value = lab.starter;
-    markWorkspaceDirty("Template recarregado para o laboratorio atual.");
   });
 
   elements.resetButton.addEventListener("click", () => {

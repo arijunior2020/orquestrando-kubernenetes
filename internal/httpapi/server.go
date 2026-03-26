@@ -212,6 +212,11 @@ func (s *Server) handleValidate(response http.ResponseWriter, request *http.Requ
 		Score:      result.Score,
 		AllPassed:  result.AllPassed,
 	}); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "limite de 3 envios") {
+			writeJSON(response, http.StatusForbidden, map[string]string{"error": err.Error()})
+			return
+		}
+
 		writeJSON(response, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}

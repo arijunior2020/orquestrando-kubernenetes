@@ -115,3 +115,88 @@ func TestSQLiteStoreSaveWorkspaceAndSubmission(t *testing.T) {
 		t.Fatalf("esperava 2 tarefas concluidas, recebeu %d", len(workspace.CompletedTaskIndexes))
 	}
 }
+
+func TestSQLiteStoreSubmissionLimitAndBestScore(t *testing.T) {
+	t.Parallel()
+
+	store, err := NewSQLiteStore(filepath.Join(t.TempDir(), "kubeclass.db"))
+	if err != nil {
+		t.Fatalf("falha ao abrir sqlite store: %v", err)
+	}
+
+	if _, err := store.CreateCohort(context.Background(), CreateCohortParams{
+		Code:  "turma-a",
+		Title: "Turma A",
+	}); err != nil {
+		t.Fatalf("falha ao criar turma: %v", err)
+	}
+
+	dashboard, err := store.UpsertSession(context.Background(), SessionUpsertParams{
+		Name:       "Aluno Teste",
+		Email:      "aluno@example.com",
+		CohortCode: "turma-a",
+	})
+	if err != nil {
+		t.Fatalf("falha ao criar sessao do aluno: %v", err)
+	}
+
+	validationJSON, err := json.Marshal(map[string]any{"labId": "lab-1", "score": 60, "allPassed": false})
+	if err != nil {
+		t.Fatalf("falha ao criar json de validacao: %v", err)
+	}
+
+	if err := store.SaveWorkspace(context.Background(), SaveWorkspaceParams{
+		StudentID:            dashboard.Student.ID,
+		LabID:                "lab-1",
+		SessionID:            "encontro-1",
+		Solution:             "kind: Pod",
+		TerminalLog:          "$ kubectl get pods",
+		Validation:           validationJSON,
+		CompletedTaskIndexes: []int{0},
+	}); err != nil {
+		t.Fatalf("falha ao salvar workspace: %v", err)
+	}
+
+	for i, score := range []int{60, 70, 80} {
+		currentValidation, _ := json.Marshal(map[string]any{"labId": "lab-1", "score": score, "allPassed": score == 100})
+		if err := store.CreateSubmission(context.Background(), SubmissionParams{
+			StudentID:  dashboard.Student.ID,
+			LabID:      "lab-1",
+			Solution:   "kind: Pod",
+			Validation: currentValidation,
+			Score:      score,
+			AllPassed:  score == 100,
+		}); err != nil {
+			t.Fatalf("esperava submissao %d bem sucedida, recebeu erro: %v", i+1, err)
+		}
+	}
+
+	if err := store.CreateSubmission(context.Background(), SubmissionParams{
+		StudentID:  dashboard.Student.ID,
+		LabID:      "lab-1",
+		Solution:   "kind: Pod",
+		Validation: validationJSON,
+		Score:      90,
+		AllPassed:  false,
+	}); err == nil {
+		t.Fatal("esperava erro ao exceder limite de 3 submissoes", err)
+	}
+
+	adminDetail, err := store.LoadAdminStudentDetail(context.Background(), dashboard.Student.ID, "turma-a")
+	if err != nil {
+		t.Fatalf("falha ao carregar detail admin: %v", err)
+	}
+
+	if len(adminDetail.Workspaces) == 0 {
+		t.Fatal("esperava pelo menos um workspace no admin detail")
+	}
+
+	workspace := adminDetail.Workspaces[0]
+	if workspace.SubmissionCount != 3 {
+		t.Fatalf("esperava 3 submissoes no status, recebeu %d", workspace.SubmissionCount)
+	}
+
+	if workspace.ValidationScore != 80 {
+		t.Fatalf("esperava melhor score 80, recebeu %d", workspace.ValidationScore)
+	}
+}

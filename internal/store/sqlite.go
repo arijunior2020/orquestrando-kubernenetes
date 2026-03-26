@@ -36,6 +36,8 @@ type Workspace struct {
 	Validation           json.RawMessage `json:"validation"`
 	CompletedTaskIndexes []int           `json:"completedTaskIndexes"`
 	UpdatedAt            string          `json:"updatedAt"`
+	BestScore            int             `json:"bestScore,omitempty"`
+	BestAllPassed        bool            `json:"bestAllPassed,omitempty"`
 }
 
 type Dashboard struct {
@@ -602,6 +604,32 @@ func (s *SQLiteStore) LoadDashboard(ctx context.Context, studentID int64) (Dashb
 		workspaces[labID] = workspace
 	}
 
+	if submissionBestRows, err := s.db.QueryContext(
+		ctx,
+		`SELECT lab_id, MAX(score) AS best_score, MAX(all_passed) AS any_passed
+		 FROM submissions
+		 WHERE student_id = ?
+		 GROUP BY lab_id`,
+		studentID,
+	); err != nil {
+		return Dashboard{}, fmt.Errorf("falha ao carregar melhores notas de submissao: %w", err)
+	} else {
+		defer submissionBestRows.Close()
+		for submissionBestRows.Next() {
+			var labID string
+			var bestScore int
+			var anyPassed int
+			if err := submissionBestRows.Scan(&labID, &bestScore, &anyPassed); err != nil {
+				return Dashboard{}, fmt.Errorf("falha ao ler melhores notas de submissao: %w", err)
+			}
+			if workspace, found := workspaces[labID]; found {
+				workspace.BestScore = bestScore
+				workspace.BestAllPassed = anyPassed == 1
+				workspaces[labID] = workspace
+			}
+		}
+	}
+
 	if err := s.db.QueryRowContext(
 		ctx,
 		`SELECT COUNT(*) FROM submissions WHERE student_id = ?`,
@@ -688,6 +716,20 @@ func (s *SQLiteStore) SaveWorkspace(ctx context.Context, params SaveWorkspacePar
 func (s *SQLiteStore) CreateSubmission(ctx context.Context, params SubmissionParams) error {
 	if params.StudentID <= 0 || strings.TrimSpace(params.LabID) == "" {
 		return fmt.Errorf("submissao invalida")
+	}
+
+	var count int
+	if err := s.db.QueryRowContext(
+		ctx,
+		`SELECT COUNT(*) FROM submissions WHERE student_id = ? AND lab_id = ?`,
+		params.StudentID,
+		params.LabID,
+	).Scan(&count); err != nil {
+		return fmt.Errorf("falha ao verificar limite de submissao: %w", err)
+	}
+
+	if count >= 3 {
+		return fmt.Errorf("limite de 3 envios por lab atingido")
 	}
 
 	var cohortID sql.NullInt64
@@ -901,7 +943,7 @@ func (s *SQLiteStore) LoadAdminStudentDetail(ctx context.Context, studentID int6
 
 	submissionStats, err := s.db.QueryContext(
 		ctx,
-		`SELECT lab_id, COUNT(*) AS submission_count, MAX(created_at) AS last_submission_at
+		`SELECT lab_id, COUNT(*) AS submission_count, MAX(created_at) AS last_submission_at, MAX(score) AS best_score, MAX(all_passed) AS any_passed
 		 FROM submissions
 		 WHERE student_id = ?
 		 GROUP BY lab_id`,
@@ -917,13 +959,21 @@ func (s *SQLiteStore) LoadAdminStudentDetail(ctx context.Context, studentID int6
 			labID            string
 			submissionCount  int
 			lastSubmissionAt string
+			bestScore        int
+			anyPassed        int
 		)
-		if err := submissionStats.Scan(&labID, &submissionCount, &lastSubmissionAt); err != nil {
+		if err := submissionStats.Scan(&labID, &submissionCount, &lastSubmissionAt, &bestScore, &anyPassed); err != nil {
 			return detail, fmt.Errorf("falha ao ler estatistica de submissao: %w", err)
 		}
 		if workspace := workspacesMap[labID]; workspace != nil {
 			workspace.SubmissionCount = submissionCount
 			workspace.LastSubmissionAt = lastSubmissionAt
+			if bestScore > workspace.ValidationScore {
+				workspace.ValidationScore = bestScore
+			}
+			if anyPassed == 1 {
+				workspace.ValidationPassed = true
+			}
 		}
 	}
 

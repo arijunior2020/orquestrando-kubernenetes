@@ -80,15 +80,15 @@ jobs:
       - name: Setup SSH for remote deploy
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/kubeclass-pilot-key.pem
+          chmod 600 ~/.ssh/kubeclass-pilot-key.pem
           ssh-keyscan -H "${{ secrets.REMOTE_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Copy image to remote host
         run: |
-          scp -o StrictHostKeyChecking=no kubeclass-web-lab.tar.gz ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz
+          scp -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no kubeclass-web-lab.tar.gz ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz
 
       - name: Import image and rollout deployment (remote)
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "sudo /usr/local/bin/k3s ctr images import /home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz && kubectl rollout restart deployment/kubeclass-web -n platform && kubectl rollout status deployment/kubeclass-web -n platform && kubectl get pods -n platform"
+          ssh -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "sudo /usr/local/bin/k3s ctr images import /home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz && kubectl rollout restart deployment/kubeclass-web -n platform && kubectl rollout status deployment/kubeclass-web -n platform && kubectl get pods -n platform"
 

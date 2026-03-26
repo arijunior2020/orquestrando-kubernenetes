@@ -1080,12 +1080,13 @@ const renderStudentDetail = () => {
   elements.labList.innerHTML = state.course.meetings
     .map((meeting) => {
       const workspace = workspaceByLabId.get(meeting.lab.id);
-      const validationStatus = workspace?.validationPassed
+      const validationStatus = workspace?.bestAllPassed || workspace?.validationPassed
         ? { label: "Validado", tone: "success" }
         : workspace
           ? { label: "Em trabalho", tone: "draft" }
           : { label: "Sem entrega", tone: "neutral" };
       const completedTasks = workspace?.completedTaskIndexes?.length || 0;
+      const bestScore = workspace?.bestScore || workspace?.validationScore || 0;
 
       return `
         <article class="admin-lab-item">
@@ -1098,7 +1099,7 @@ const renderStudentDetail = () => {
           </div>
           <div class="admin-lab-meta">
             <span>Lab: ${escapeHtml(meeting.lab.id)}</span>
-            <span>Score: ${workspace ? `${workspace.validationScore}%` : "-"}</span>
+            <span>Score: ${workspace ? `${bestScore}%` : "-"}</span>
             <span>Tarefas: ${completedTasks}/${meeting.practiceTasks.length}</span>
           </div>
           <div class="admin-lab-meta">
