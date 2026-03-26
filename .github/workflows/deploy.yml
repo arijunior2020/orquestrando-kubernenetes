@@ -88,9 +88,12 @@ jobs:
             exit 1
           fi
           mkdir -p ~/.ssh
+          echo "[INFO] REMOTE_HOST is set; REMOTE_USER is set" >&2
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/kubeclass-pilot-key.pem
           chmod 600 ~/.ssh/kubeclass-pilot-key.pem
-          ssh-keyscan -H "${{ secrets.REMOTE_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.REMOTE_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || {
+            echo "WARNING: ssh-keyscan failed for ${REMOTE_HOST}; continuing with StrictHostKeyChecking=no." >&2
+          }
 
       - name: Copy image to remote host
         run: |
