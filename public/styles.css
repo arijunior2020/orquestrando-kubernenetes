@@ -556,6 +556,11 @@ body::before {
   color: var(--success);
 }
 
+.timeline-status.info {
+  background: rgba(47, 128, 237, 0.12);
+  color: var(--accent-strong);
+}
+
 .timeline-status.draft {
   background: var(--signal-soft);
   color: #9a5a08;

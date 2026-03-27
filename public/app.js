@@ -334,6 +334,9 @@ const CHALLENGE_WORKFLOW = [
 ];
 
 const GUIDE_STREAM_PATTERN = /\s-w(?:\s|$)|\blogs\s+-f\b/;
+const TERMINAL_PROMPT_PATTERN = /(?:^|\r?\n)[^\r\n]*[$#] $/m;
+const TERMINAL_FAILURE_PATTERN =
+  /\b(error:|forbidden|not found|unable to|failed\b|panic:|invalid\b|timeout\b)\b/i;
 const MAX_SUBMISSIONS_PER_LAB = 3;
 const MANUAL_PROGRESS_RULES = {
   "lab-1": [
@@ -354,6 +357,27 @@ const MANUAL_PROGRESS_RULES = {
         /^kubectl\s+get\s+pods(?:\s+-n\s+team-dev)?\s+-w$/i,
         /^kubectl\s+describe\s+pod\s+nginx-lab(?:\s+-n\s+team-dev)?$/i,
         /^kubectl\s+delete\s+pod\s+nginx-lab(?:\s+-n\s+team-dev)?$/i,
+      ],
+    },
+  ],
+  "lab-2": [
+    {
+      taskIndexes: [0],
+      patterns: [
+        /^kubectl\s+create\s+deployment\s+api-demo\b.*\b--image=nginx(?::[^\s]+)?\b.*\b--replicas=3\b/i,
+      ],
+    },
+    {
+      taskIndexes: [1],
+      patterns: [
+        /^kubectl\s+expose\s+deployment\s+api-demo\b.*\b--name=api-demo-svc\b.*\b--port=80\b.*\b--target-port=80\b/i,
+      ],
+    },
+    {
+      taskIndexes: [2],
+      patterns: [
+        /^kubectl\s+rollout\s+status\s+deploy(?:ment)?\/api-demo$/i,
+        /^kubectl\s+get\s+deploy,svc,pods$/i,
       ],
     },
   ],
@@ -397,6 +421,7 @@ const state = {
     connected: false,
     activeStreamingCommand: null,
     commandBuffer: "",
+    pendingCommand: null,
     status: {
       message:
         "Conecte um aluno para provisionar namespace, toolbox pod e terminal do lab.",
@@ -786,25 +811,21 @@ const formatClockTime = () =>
   }).format(new Date());
 
 const calculateProgress = () => {
-  const totalTasks = state.course.meetings.reduce(
-    (sum, meeting) => sum + meeting.practiceTasks.length + 1,
-    0,
-  );
+  const totalMeetings = state.course.meetings.length;
+  const completedMeetings = state.course.meetings.filter((meeting) => {
+    const validation = state.validations[meeting.lab.id];
+    return Boolean(validation?.allPassed) && isSessionPracticeComplete(meeting);
+  }).length;
+  const percentage = totalMeetings === 0 ? 0 : Math.round((completedMeetings / totalMeetings) * 100);
 
-  const completedTasks = Object.values(state.completedTasks).filter(Boolean).length;
-  const completedValidations = Object.values(state.validations).filter(
-    (result) => result?.allPassed,
-  ).length;
-  const completed = completedTasks + completedValidations;
-  const percentage = totalTasks === 0 ? 0 : Math.round((completed / totalTasks) * 100);
-
-  return { totalTasks, completed, percentage };
+  return { totalMeetings, completedMeetings, percentage };
 };
 
 const getSessionStatus = (meeting) => {
   const validation = state.validations[meeting.lab.id];
   const draft = (state.drafts[meeting.lab.id] || "").trim();
   const practiceComplete = isSessionPracticeComplete(meeting);
+  const completedPracticeTasks = getCompletedTaskIndexes(meeting).length;
 
   if (validation?.allPassed && practiceComplete) {
     return { label: "Concluido", tone: "success" };
@@ -812,6 +833,10 @@ const getSessionStatus = (meeting) => {
 
   if (validation?.allPassed) {
     return { label: "Validado", tone: "success" };
+  }
+
+  if (completedPracticeTasks > 0) {
+    return { label: "Em progresso", tone: "info" };
   }
 
   if (draft && draft !== meeting.lab.starter.trim()) {
@@ -840,6 +865,11 @@ const normalizeTrackedCommand = (command) =>
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
+
+const normalizeTerminalOutput = (output) =>
+  String(output || "")
+    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "")
+    .replace(/\r/g, "\n");
 
 const matchesTrackedCommand = (command, pattern) => {
   if (pattern instanceof RegExp) {
@@ -875,6 +905,47 @@ const resolveTaskIndexesForExecutedCommand = (labId, command) => {
   });
 
   return Array.from(matchedTaskIndexes).sort((left, right) => left - right);
+};
+
+const clearPendingRuntimeCommand = () => {
+  state.runtime.pendingCommand = null;
+};
+
+const canTreatAlreadyExistsAsSuccess = (command) =>
+  /^kubectl\s+(create|expose)\b/i.test(normalizeTrackedCommand(command));
+
+const didTrackedCommandSucceed = (command, output) => {
+  const normalizedOutput = normalizeTerminalOutput(output).trim();
+  if (!normalizedOutput) {
+    return false;
+  }
+
+  if (!TERMINAL_FAILURE_PATTERN.test(normalizedOutput)) {
+    return true;
+  }
+
+  return /\balready exists\b/i.test(normalizedOutput) && canTreatAlreadyExistsAsSuccess(command);
+};
+
+const beginTrackingRuntimeCommand = (command) => {
+  const runtimeSession = getActiveRuntimeSession();
+  if (!runtimeSession) {
+    clearPendingRuntimeCommand();
+    return;
+  }
+
+  const normalizedCommand = String(command || "").trim();
+  if (!normalizedCommand) {
+    clearPendingRuntimeCommand();
+    return;
+  }
+
+  state.runtime.pendingCommand = {
+    command: normalizedCommand,
+    labId: runtimeSession.labId,
+    taskIndexes: resolveTaskIndexesForExecutedCommand(runtimeSession.labId, normalizedCommand),
+    output: "",
+  };
 };
 
 const renderCapabilities = () => {
@@ -1415,6 +1486,7 @@ const sendRuntimeInput = (data) => {
 
 const sendCommandToRuntime = (command, options = {}) => {
   const payload = command.endsWith("\n") ? command : `${command}\n`;
+  beginTrackingRuntimeCommand(command);
   sendRuntimeInput(payload);
   state.runtime.activeStreamingCommand = options.streaming ? command : null;
   state.runtime.term.focus();
@@ -1425,24 +1497,32 @@ const interruptRuntimeStreamingCommand = async () => {
     return;
   }
 
+  clearPendingRuntimeCommand();
   sendRuntimeInput("\u0003");
   state.runtime.activeStreamingCommand = null;
   await delay(180);
 };
 
-const registerExecutedRuntimeCommand = (command) => {
-  const runtimeSession = getActiveRuntimeSession();
-  if (!runtimeSession) {
+const finalizeTrackedRuntimeCommand = () => {
+  const pendingCommand = state.runtime.pendingCommand;
+  if (!pendingCommand) {
     return;
   }
 
-  const meeting = findMeetingByLabId(runtimeSession.labId);
+  const meeting = findMeetingByLabId(pendingCommand.labId);
   if (!meeting) {
+    clearPendingRuntimeCommand();
     return;
   }
 
-  const taskIndexes = resolveTaskIndexesForExecutedCommand(runtimeSession.labId, command);
-  if (taskIndexes.length === 0) {
+  const taskIndexes = pendingCommand.taskIndexes || [];
+  const succeeded = didTrackedCommandSucceed(pendingCommand.command, pendingCommand.output);
+  clearPendingRuntimeCommand();
+
+  if (!succeeded || taskIndexes.length === 0) {
+    if (!succeeded && taskIndexes.length > 0) {
+      setRuntimeStatus("Comando executado com erro. Checklist do laboratorio nao foi atualizado.", "warning");
+    }
     return;
   }
 
@@ -1464,7 +1544,7 @@ const flushRuntimeCommandBuffer = () => {
   state.runtime.commandBuffer = "";
 
   if (command) {
-    registerExecutedRuntimeCommand(command);
+    beginTrackingRuntimeCommand(command);
   }
 };
 
@@ -1481,6 +1561,7 @@ const trackRuntimeCommandInput = (data) => {
 
     if (char === "\u0003" || char === "\u0015") {
       state.runtime.commandBuffer = "";
+      clearPendingRuntimeCommand();
       continue;
     }
 
@@ -1494,6 +1575,17 @@ const trackRuntimeCommandInput = (data) => {
     }
 
     state.runtime.commandBuffer += char === "\t" ? " " : char;
+  }
+};
+
+const trackRuntimeCommandOutput = (data) => {
+  if (!state.runtime.pendingCommand || typeof data !== "string") {
+    return;
+  }
+
+  state.runtime.pendingCommand.output += data;
+  if (TERMINAL_PROMPT_PATTERN.test(state.runtime.pendingCommand.output)) {
+    finalizeTrackedRuntimeCommand();
   }
 };
 
@@ -1516,7 +1608,6 @@ const handleCommandAction = async (commandIndex) => {
       }
 
       sendCommandToRuntime(selected.command, { streaming: isStreamingGuideStep(selected) });
-      markTaskIndexesForSession(getActiveSession().id, selected.taskIndexes || []);
       appendTerminalJournal("Passo enviado ao terminal", selected.command, selected.note);
       setRuntimeStatus(
         willInterruptPrevious
@@ -1530,10 +1621,6 @@ const handleCommandAction = async (commandIndex) => {
       if (willInterruptPrevious) {
         showToast("O comando anterior foi interrompido para executar o proximo passo guiado.", "info");
       }
-      renderPracticeTasks(getActiveSession());
-      renderTimeline();
-      renderHeader();
-      renderDashboardStrip();
       markWorkspaceDirty("Roteiro de terminal atualizado no diario do lab.");
     } catch (error) {
       setRuntimeStatus(
@@ -1715,6 +1802,7 @@ const disconnectRuntimeTerminal = (message) => {
   state.runtime.session = null;
   state.runtime.activeStreamingCommand = null;
   state.runtime.commandBuffer = "";
+  clearPendingRuntimeCommand();
   elements.terminalModeLabel.textContent = "Sem sessao ativa";
   if (message) {
     setRuntimeStatus(message, "muted");
@@ -1780,6 +1868,7 @@ const openRuntimeTerminal = async () => {
   state.runtime.session = session;
   state.runtime.activeStreamingCommand = null;
   state.runtime.commandBuffer = "";
+  clearPendingRuntimeCommand();
   term.reset();
   term.focus();
   term.writeln(`KubeClass runtime conectado ao namespace ${session.namespace}`);
@@ -1819,6 +1908,7 @@ const openRuntimeTerminal = async () => {
       const message = JSON.parse(event.data);
       if (message.type === "output" || message.type === "status") {
         state.runtime.term.write(message.data);
+        trackRuntimeCommandOutput(message.data);
         if (typeof message.data === "string" && /(?:^|\r?\n)[^\r\n]*[$#] $/m.test(message.data)) {
           state.runtime.activeStreamingCommand = null;
         }
@@ -1832,6 +1922,7 @@ const openRuntimeTerminal = async () => {
     state.runtime.connected = false;
     state.runtime.activeStreamingCommand = null;
     state.runtime.commandBuffer = "";
+    clearPendingRuntimeCommand();
     setRuntimeStatus("Conexao do terminal encerrada. Voce pode abrir novamente a sessao do lab.", "muted");
     elements.terminalModeLabel.textContent = "Sessao provisionada";
     renderRuntimePanel();
@@ -1842,6 +1933,7 @@ const openRuntimeTerminal = async () => {
     state.runtime.connected = false;
     state.runtime.activeStreamingCommand = null;
     state.runtime.commandBuffer = "";
+    clearPendingRuntimeCommand();
     setRuntimeStatus("Falha no WebSocket do terminal real.", "danger");
     showToast("Falha ao conectar o terminal real do laboratorio.", "danger");
     elements.terminalModeLabel.textContent = "Falha de conexao";
