@@ -112,7 +112,12 @@ jobs:
         run: |
           scp -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no kubeclass-web-lab.tar.gz ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz
 
-      - name: Import image and rollout deployment (remote)
+      - name: Import image and update deployment (remote)
         run: |
-          ssh -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "sudo /usr/local/bin/k3s ctr images import /home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz && kubectl rollout restart deployment/kubeclass-web -n platform && kubectl rollout status deployment/kubeclass-web -n platform && kubectl get pods -n platform"
-
+          ssh -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "\
+            sudo /usr/local/bin/k3s ctr images import /home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz && \
+            kubectl set image deployment/kubeclass-web -n platform kubeclass-web=${{ env.IMAGE }} && \
+            kubectl annotate deployment/kubeclass-web -n platform app.kubernetes.io/version=${{ github.sha }} --overwrite && \
+            kubectl rollout status deployment/kubeclass-web -n platform && \
+            kubectl get deployment kubeclass-web -n platform -o jsonpath='{.spec.template.spec.containers[0].image}{\"\n\"}' && \
+            kubectl get pods -n platform"
