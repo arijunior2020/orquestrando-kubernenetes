@@ -1943,10 +1943,6 @@ const openRuntimeTerminal = async () => {
 };
 
 const refreshDashboard = async () => {
-  if (!state.student?.id) {
-    return;
-  }
-
   const dashboard = await fetchJSON("/api/dashboard");
   syncStateFromDashboard(dashboard);
   return dashboard;
@@ -2305,8 +2301,18 @@ const initialize = async () => {
     const auth = await fetchJSON("/api/auth/status");
 
     if (auth.authenticated && auth.role === "student") {
+      state.studentId = auth.student?.id || null;
+      state.student = auth.student || null;
+      state.cohort = auth.cohort || null;
+      state.accessProfile = {
+        email: auth.student?.email || "",
+        cohortCode: auth.cohort?.code || "",
+      };
       await refreshDashboard();
-      const sessionLabel = describeStudentSession(state.student, state.cohort);
+      const sessionLabel = describeStudentSession(
+        state.student || auth.student,
+        state.cohort || auth.cohort,
+      );
       if (!sessionLabel) {
         throw new Error(
           "A plataforma encontrou uma sessao de aluno, mas os dados dela nao foram restaurados corretamente.",
