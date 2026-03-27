@@ -191,16 +191,40 @@ func (s *Server) handleValidate(response http.ResponseWriter, request *http.Requ
 		return
 	}
 
-	if err := s.store.SaveWorkspace(request.Context(), store.SaveWorkspaceParams{
-		StudentID:            principal.Student.ID,
-		LabID:                payload.LabID,
-		SessionID:            payload.SessionID,
-		Solution:             payload.Solution,
-		TerminalLog:          payload.TerminalLog,
-		Validation:           validationJSON,
-		CompletedTaskIndexes: payload.CompletedTaskIndexes,
-	}); err != nil {
+	submissionStatus, err := s.store.LoadSubmissionStatus(request.Context(), principal.Student.ID, payload.LabID)
+	if err != nil {
 		writeJSON(response, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	persistBestValidation := validationJSON
+	if len(submissionStatus.BestValidation) > 0 {
+		shouldKeepExistingBest := submissionStatus.BestScore > result.Score ||
+			(submissionStatus.BestScore == result.Score && submissionStatus.BestAllPassed && !result.AllPassed)
+		if shouldKeepExistingBest {
+			persistBestValidation = submissionStatus.BestValidation
+		}
+	}
+
+	if submissionStatus.Count >= 3 {
+		if err := s.store.SaveWorkspace(request.Context(), store.SaveWorkspaceParams{
+			StudentID:            principal.Student.ID,
+			LabID:                payload.LabID,
+			SessionID:            payload.SessionID,
+			Solution:             payload.Solution,
+			TerminalLog:          payload.TerminalLog,
+			Validation:           persistBestValidation,
+			CompletedTaskIndexes: payload.CompletedTaskIndexes,
+		}); err != nil {
+			writeJSON(response, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+
+		message := "limite de 3 tentativas de entrega atingido"
+		if submissionStatus.BestScore > 0 {
+			message = fmt.Sprintf("%s. Melhor nota registrada: %d%%.", message, submissionStatus.BestScore)
+		}
+		writeJSON(response, http.StatusForbidden, map[string]string{"error": message})
 		return
 	}
 
@@ -212,11 +236,24 @@ func (s *Server) handleValidate(response http.ResponseWriter, request *http.Requ
 		Score:      result.Score,
 		AllPassed:  result.AllPassed,
 	}); err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "limite de 3 envios") {
+		if errors.Is(err, store.ErrSubmissionLimitReached) {
 			writeJSON(response, http.StatusForbidden, map[string]string{"error": err.Error()})
 			return
 		}
 
+		writeJSON(response, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	if err := s.store.SaveWorkspace(request.Context(), store.SaveWorkspaceParams{
+		StudentID:            principal.Student.ID,
+		LabID:                payload.LabID,
+		SessionID:            payload.SessionID,
+		Solution:             payload.Solution,
+		TerminalLog:          payload.TerminalLog,
+		Validation:           persistBestValidation,
+		CompletedTaskIndexes: payload.CompletedTaskIndexes,
+	}); err != nil {
 		writeJSON(response, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}

@@ -148,6 +148,79 @@ func TestValidateEndpointRejectsStarterMistakes(t *testing.T) {
 	}
 }
 
+func TestValidateEndpointPreservesBestScoreWhenSubmissionLimitIsReached(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	createTestCohort(t, server, "turma-lab", "Turma Lab")
+	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-lab", "senha123")
+
+	validBody := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: team-dev\n---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-lab\n  namespace: team-dev\nspec:\n  containers:\n    - name: nginx\n      image: nginx:stable"}`)
+	invalidBody := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: team-devs\n---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-lab\n  namespace: team-devs\nspec:\n  containers:\n    - name: nginx\n      image: ngnix:stable"}`)
+
+	postValidation := func(body []byte) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPost, "/api/validate", bytes.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(cookie)
+		response := httptest.NewRecorder()
+		server.Handler().ServeHTTP(response, request)
+		return response
+	}
+
+	for attempt, body := range [][]byte{validBody, invalidBody, invalidBody} {
+		response := postValidation(body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("esperava status 200 na tentativa %d, recebeu %d", attempt+1, response.Code)
+		}
+	}
+
+	limitedResponse := postValidation(invalidBody)
+	if limitedResponse.Code != http.StatusForbidden {
+		t.Fatalf("esperava status 403 ao exceder limite, recebeu %d", limitedResponse.Code)
+	}
+
+	var limitPayload map[string]any
+	if err := json.Unmarshal(limitedResponse.Body.Bytes(), &limitPayload); err != nil {
+		t.Fatalf("payload de limite invalido: %v", err)
+	}
+
+	if got := limitPayload["error"].(string); got == "" {
+		t.Fatal("esperava mensagem de limite de tentativas")
+	}
+
+	dashboardRequest := httptest.NewRequest(http.MethodGet, "/api/dashboard", nil)
+	dashboardRequest.AddCookie(cookie)
+	dashboardResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(dashboardResponse, dashboardRequest)
+
+	if dashboardResponse.Code != http.StatusOK {
+		t.Fatalf("esperava status 200 ao recarregar dashboard, recebeu %d", dashboardResponse.Code)
+	}
+
+	var dashboard struct {
+		Workspaces map[string]struct {
+			Validation      map[string]any `json:"validation"`
+			SubmissionCount int            `json:"submissionCount"`
+		} `json:"workspaces"`
+	}
+	if err := json.Unmarshal(dashboardResponse.Body.Bytes(), &dashboard); err != nil {
+		t.Fatalf("dashboard invalido: %v", err)
+	}
+
+	workspace, found := dashboard.Workspaces["lab-1"]
+	if !found {
+		t.Fatal("esperava workspace lab-1 no dashboard")
+	}
+
+	if workspace.SubmissionCount != 3 {
+		t.Fatalf("esperava 3 submissoes registradas, recebeu %d", workspace.SubmissionCount)
+	}
+
+	if workspace.Validation["score"].(float64) != 100 {
+		t.Fatalf("esperava manter a melhor nota 100 no dashboard, recebeu %v", workspace.Validation["score"])
+	}
+}
+
 func TestWorkspaceSaveEndpointPersistsDashboardState(t *testing.T) {
 	t.Parallel()
 

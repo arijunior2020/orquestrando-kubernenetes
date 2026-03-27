@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"testing"
 )
@@ -178,8 +179,33 @@ func TestSQLiteStoreSubmissionLimitAndBestScore(t *testing.T) {
 		Validation: validationJSON,
 		Score:      90,
 		AllPassed:  false,
-	}); err == nil {
-		t.Fatal("esperava erro ao exceder limite de 3 submissoes", err)
+	}); !errors.Is(err, ErrSubmissionLimitReached) {
+		t.Fatalf("esperava erro de limite de submissao, recebeu: %v", err)
+	}
+
+	reloaded, err := store.LoadDashboard(context.Background(), dashboard.Student.ID)
+	if err != nil {
+		t.Fatalf("falha ao recarregar dashboard: %v", err)
+	}
+
+	dashboardWorkspace, found := reloaded.Workspaces["lab-1"]
+	if !found {
+		t.Fatal("esperava workspace lab-1 no dashboard")
+	}
+
+	if dashboardWorkspace.SubmissionCount != 3 {
+		t.Fatalf("esperava 3 tentativas no dashboard, recebeu %d", dashboardWorkspace.SubmissionCount)
+	}
+
+	var bestValidation struct {
+		Score int `json:"score"`
+	}
+	if err := json.Unmarshal(dashboardWorkspace.Validation, &bestValidation); err != nil {
+		t.Fatalf("falha ao ler melhor validacao do dashboard: %v", err)
+	}
+
+	if bestValidation.Score != 80 {
+		t.Fatalf("esperava melhor validacao 80 no dashboard, recebeu %d", bestValidation.Score)
 	}
 
 	adminDetail, err := store.LoadAdminStudentDetail(context.Background(), dashboard.Student.ID, "turma-a")

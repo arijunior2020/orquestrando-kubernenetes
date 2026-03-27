@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,6 +37,7 @@ type Workspace struct {
 	Validation           json.RawMessage `json:"validation"`
 	CompletedTaskIndexes []int           `json:"completedTaskIndexes"`
 	UpdatedAt            string          `json:"updatedAt"`
+	SubmissionCount      int             `json:"submissionCount,omitempty"`
 	BestScore            int             `json:"bestScore,omitempty"`
 	BestAllPassed        bool            `json:"bestAllPassed,omitempty"`
 }
@@ -73,6 +75,15 @@ type SubmissionParams struct {
 	Score      int
 	AllPassed  bool
 }
+
+type SubmissionStatus struct {
+	Count          int
+	BestScore      int
+	BestAllPassed  bool
+	BestValidation json.RawMessage
+}
+
+var ErrSubmissionLimitReached = errors.New("limite de 3 tentativas de entrega atingido")
 
 type AdminCohortSummary struct {
 	ID           int64  `json:"id"`
@@ -551,7 +562,6 @@ func (s *SQLiteStore) LoadDashboard(ctx context.Context, studentID int64) (Dashb
 	}
 	defer rows.Close()
 
-	validatedLabs := 0
 	for rows.Next() {
 		var workspace Workspace
 		var validationJSON string
@@ -568,12 +578,6 @@ func (s *SQLiteStore) LoadDashboard(ctx context.Context, studentID int64) (Dashb
 
 		if strings.TrimSpace(validationJSON) != "" {
 			workspace.Validation = json.RawMessage(validationJSON)
-			var validationState struct {
-				AllPassed bool `json:"allPassed"`
-			}
-			if json.Unmarshal([]byte(validationJSON), &validationState) == nil && validationState.AllPassed {
-				validatedLabs++
-			}
 		}
 
 		workspaces[workspace.LabID] = workspace
@@ -604,30 +608,25 @@ func (s *SQLiteStore) LoadDashboard(ctx context.Context, studentID int64) (Dashb
 		workspaces[labID] = workspace
 	}
 
-	if submissionBestRows, err := s.db.QueryContext(
-		ctx,
-		`SELECT lab_id, MAX(score) AS best_score, MAX(all_passed) AS any_passed
-		 FROM submissions
-		 WHERE student_id = ?
-		 GROUP BY lab_id`,
-		studentID,
-	); err != nil {
-		return Dashboard{}, fmt.Errorf("falha ao carregar melhores notas de submissao: %w", err)
-	} else {
-		defer submissionBestRows.Close()
-		for submissionBestRows.Next() {
-			var labID string
-			var bestScore int
-			var anyPassed int
-			if err := submissionBestRows.Scan(&labID, &bestScore, &anyPassed); err != nil {
-				return Dashboard{}, fmt.Errorf("falha ao ler melhores notas de submissao: %w", err)
-			}
-			if workspace, found := workspaces[labID]; found {
-				workspace.BestScore = bestScore
-				workspace.BestAllPassed = anyPassed == 1
-				workspaces[labID] = workspace
-			}
+	validatedLabs := 0
+	for labID, workspace := range workspaces {
+		status, err := s.LoadSubmissionStatus(ctx, studentID, labID)
+		if err != nil {
+			return Dashboard{}, fmt.Errorf("falha ao carregar status de submissao do lab %s: %w", labID, err)
 		}
+
+		workspace.SubmissionCount = status.Count
+		workspace.BestScore = status.BestScore
+		workspace.BestAllPassed = status.BestAllPassed
+		if len(status.BestValidation) > 0 {
+			workspace.Validation = status.BestValidation
+		}
+
+		if validationAllPassed(workspace.Validation) || workspace.BestAllPassed {
+			validatedLabs++
+		}
+
+		workspaces[labID] = workspace
 	}
 
 	if err := s.db.QueryRowContext(
@@ -713,6 +712,56 @@ func (s *SQLiteStore) SaveWorkspace(ctx context.Context, params SaveWorkspacePar
 	return nil
 }
 
+func (s *SQLiteStore) LoadSubmissionStatus(ctx context.Context, studentID int64, labID string) (SubmissionStatus, error) {
+	if studentID <= 0 {
+		return SubmissionStatus{}, fmt.Errorf("studentId invalido")
+	}
+
+	if strings.TrimSpace(labID) == "" {
+		return SubmissionStatus{}, fmt.Errorf("labId obrigatorio")
+	}
+
+	status := SubmissionStatus{}
+	if err := s.db.QueryRowContext(
+		ctx,
+		`SELECT COUNT(*) FROM submissions WHERE student_id = ? AND lab_id = ?`,
+		studentID,
+		labID,
+	).Scan(&status.Count); err != nil {
+		return SubmissionStatus{}, fmt.Errorf("falha ao contar submissoes do lab: %w", err)
+	}
+
+	var (
+		bestValidation string
+		anyPassed      int
+	)
+
+	err := s.db.QueryRowContext(
+		ctx,
+		`SELECT score, all_passed, validation_json
+		 FROM submissions
+		 WHERE student_id = ? AND lab_id = ?
+		 ORDER BY score DESC, all_passed DESC, id DESC
+		 LIMIT 1`,
+		studentID,
+		labID,
+	).Scan(&status.BestScore, &anyPassed, &bestValidation)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return status, nil
+		}
+
+		return SubmissionStatus{}, fmt.Errorf("falha ao carregar melhor submissao do lab: %w", err)
+	}
+
+	status.BestAllPassed = anyPassed == 1
+	if strings.TrimSpace(bestValidation) != "" {
+		status.BestValidation = json.RawMessage(bestValidation)
+	}
+
+	return status, nil
+}
+
 func (s *SQLiteStore) CreateSubmission(ctx context.Context, params SubmissionParams) error {
 	if params.StudentID <= 0 || strings.TrimSpace(params.LabID) == "" {
 		return fmt.Errorf("submissao invalida")
@@ -729,7 +778,7 @@ func (s *SQLiteStore) CreateSubmission(ctx context.Context, params SubmissionPar
 	}
 
 	if count >= 3 {
-		return fmt.Errorf("limite de 3 envios por lab atingido")
+		return ErrSubmissionLimitReached
 	}
 
 	var cohortID sql.NullInt64
@@ -1149,4 +1198,16 @@ func scanAdminStudentSummary(scanner summaryScanner) (AdminStudentSummary, error
 	summary.GradedAt = gradedAt
 
 	return summary, nil
+}
+
+func validationAllPassed(payload json.RawMessage) bool {
+	if len(payload) == 0 {
+		return false
+	}
+
+	var state struct {
+		AllPassed bool `json:"allPassed"`
+	}
+
+	return json.Unmarshal(payload, &state) == nil && state.AllPassed
 }

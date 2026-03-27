@@ -12,6 +12,7 @@ const TERMINAL_GUIDES = {
         title: "Confirmar o escopo do lab",
         command: "kubectl get pods",
         note: "Confere se voce ja caiu no namespace isolado do aluno e quais recursos existem no inicio.",
+        taskIndexes: [0],
       },
       {
         title: "Subir o primeiro pod",
@@ -333,6 +334,30 @@ const CHALLENGE_WORKFLOW = [
 ];
 
 const GUIDE_STREAM_PATTERN = /\s-w(?:\s|$)|\blogs\s+-f\b/;
+const MAX_SUBMISSIONS_PER_LAB = 3;
+const MANUAL_PROGRESS_RULES = {
+  "lab-1": [
+    {
+      taskIndexes: [0],
+      patterns: [
+        /^kubectl\s+get\s+pods(?:\s+-n\s+team-dev)?$/i,
+        /^kubectl\s+create\s+namespace\s+team-dev$/i,
+      ],
+    },
+    {
+      taskIndexes: [1],
+      patterns: [/^kubectl\s+run\s+nginx-lab\b.*\b--image=nginx(?::[^\s]+)?\b/i],
+    },
+    {
+      taskIndexes: [2],
+      patterns: [
+        /^kubectl\s+get\s+pods(?:\s+-n\s+team-dev)?\s+-w$/i,
+        /^kubectl\s+describe\s+pod\s+nginx-lab(?:\s+-n\s+team-dev)?$/i,
+        /^kubectl\s+delete\s+pod\s+nginx-lab(?:\s+-n\s+team-dev)?$/i,
+      ],
+    },
+  ],
+};
 
 const state = {
   course: null,
@@ -340,6 +365,7 @@ const state = {
   drafts: {},
   completedTasks: {},
   validations: {},
+  labSubmissionCounts: {},
   terminalLogs: {},
   workspaceUpdatedAt: {},
   studentId: null,
@@ -370,6 +396,7 @@ const state = {
     fitAddon: null,
     connected: false,
     activeStreamingCommand: null,
+    commandBuffer: "",
     status: {
       message:
         "Conecte um aluno para provisionar namespace, toolbox pod e terminal do lab.",
@@ -635,11 +662,18 @@ const getWorkflowGuide = () =>
 const getTaskKey = (sessionId, taskIndex) => `${sessionId}:${taskIndex}`;
 
 const markTaskIndexesForSession = (sessionId, taskIndexes = []) => {
+  const newlyCompleted = [];
   taskIndexes.forEach((taskIndex) => {
     if (Number.isInteger(taskIndex) && taskIndex >= 0) {
-      state.completedTasks[getTaskKey(sessionId, taskIndex)] = true;
+      const taskKey = getTaskKey(sessionId, taskIndex);
+      if (!state.completedTasks[taskKey]) {
+        newlyCompleted.push(taskIndex);
+      }
+      state.completedTasks[taskKey] = true;
     }
   });
+
+  return newlyCompleted;
 };
 
 const getCompletedTaskIndexes = (session) =>
@@ -654,6 +688,7 @@ const resetLearningState = () => {
   state.drafts = {};
   state.completedTasks = {};
   state.validations = {};
+  state.labSubmissionCounts = {};
   state.terminalLogs = {};
   state.workspaceUpdatedAt = {};
 };
@@ -674,6 +709,7 @@ const persistState = () => {
       drafts: state.drafts,
       completedTasks: state.completedTasks,
       validations: state.validations,
+      labSubmissionCounts: state.labSubmissionCounts,
       terminalLogs: state.terminalLogs,
       workspaceUpdatedAt: state.workspaceUpdatedAt,
       submissionCount: state.submissionCount,
@@ -697,6 +733,7 @@ const loadPersistedState = () => {
     state.drafts = persisted.drafts || {};
     state.completedTasks = persisted.completedTasks || {};
     state.validations = persisted.validations || {};
+    state.labSubmissionCounts = persisted.labSubmissionCounts || {};
     state.terminalLogs = persisted.terminalLogs || {};
     state.workspaceUpdatedAt = persisted.workspaceUpdatedAt || {};
     state.submissionCount = persisted.submissionCount || 0;
@@ -782,6 +819,62 @@ const getSessionStatus = (meeting) => {
   }
 
   return { label: "Planejado", tone: "neutral" };
+};
+
+const getLabSubmissionCount = (labId) => Number(state.labSubmissionCounts[labId] || 0);
+
+const hasReachedSubmissionLimit = (labId) =>
+  getLabSubmissionCount(labId) >= MAX_SUBMISSIONS_PER_LAB;
+
+const buildSubmissionLimitMessage = (labId) => {
+  const bestScore = state.validations[labId]?.score || 0;
+  if (bestScore > 0) {
+    return `Limite de ${MAX_SUBMISSIONS_PER_LAB} tentativas atingido. Melhor nota registrada: ${bestScore}%.`;
+  }
+
+  return `Limite de ${MAX_SUBMISSIONS_PER_LAB} tentativas atingido para este laboratorio.`;
+};
+
+const normalizeTrackedCommand = (command) =>
+  String(command || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const matchesTrackedCommand = (command, pattern) => {
+  if (pattern instanceof RegExp) {
+    return pattern.test(command);
+  }
+
+  return normalizeTrackedCommand(pattern) === command;
+};
+
+const resolveTaskIndexesForExecutedCommand = (labId, command) => {
+  const normalizedCommand = normalizeTrackedCommand(command);
+  if (!normalizedCommand) {
+    return [];
+  }
+
+  const matchedTaskIndexes = new Set();
+
+  (MANUAL_PROGRESS_RULES[labId] || []).forEach((rule) => {
+    if (rule.patterns.some((pattern) => matchesTrackedCommand(normalizedCommand, pattern))) {
+      (rule.taskIndexes || []).forEach((taskIndex) => matchedTaskIndexes.add(taskIndex));
+    }
+  });
+
+  const guide = TERMINAL_GUIDES[labId];
+  guide?.steps.forEach((step) => {
+    if (!Array.isArray(step.taskIndexes) || step.taskIndexes.length === 0) {
+      return;
+    }
+
+    if (matchesTrackedCommand(normalizedCommand, step.command)) {
+      step.taskIndexes.forEach((taskIndex) => matchedTaskIndexes.add(taskIndex));
+    }
+  });
+
+  return Array.from(matchedTaskIndexes).sort((left, right) => left - right);
 };
 
 const renderCapabilities = () => {
@@ -920,9 +1013,17 @@ const describeValidationCheck = (item) => {
 };
 
 const renderValidation = (validation) => {
+  const lab = getActiveLab();
+  const submissionCount = getLabSubmissionCount(lab.id);
+  const submissionNote = state.student?.id
+    ? `${submissionCount}/${MAX_SUBMISSIONS_PER_LAB} tentativas registradas. A maior nota e mantida.`
+    : "";
+
   if (!validation) {
     elements.validationSummary.className = "validation-summary";
-    elements.validationSummary.textContent = "Nenhuma validacao executada ainda.";
+    elements.validationSummary.innerHTML = submissionNote
+      ? `Nenhuma validacao executada ainda.<br /><span>${escapeHtml(submissionNote)}</span>`
+      : "Nenhuma validacao executada ainda.";
     elements.validationResults.innerHTML =
       '<p class="empty-state">Envie o manifesto para ver os criterios atendidos.</p>';
     return;
@@ -932,6 +1033,7 @@ const renderValidation = (validation) => {
   elements.validationSummary.innerHTML = `
     <strong>${validation.score}% de aderencia</strong><br />
     ${validation.passedChecks}/${validation.totalChecks} criterios atendidos.
+    ${submissionNote ? `<br /><span>${escapeHtml(submissionNote)}</span>` : ""}
   `;
 
   elements.validationResults.innerHTML = `
@@ -948,6 +1050,12 @@ const renderValidation = (validation) => {
         .join("")}
     </div>
   `;
+};
+
+const syncValidateButtonState = (lab = getActiveLab()) => {
+  elements.validateButton.textContent = hasReachedSubmissionLimit(lab.id)
+    ? `Limite atingido (${getLabSubmissionCount(lab.id)}/${MAX_SUBMISSIONS_PER_LAB})`
+    : "Validar entrega";
 };
 
 const renderCommands = () => {
@@ -1224,6 +1332,7 @@ const renderSessionDetails = () => {
 
   elements.editor.value = state.drafts[lab.id] || lab.starter;
   elements.editorCallout.textContent = `${DEFAULT_EDITOR_CALLOUT} Estrutura esperada: ${lab.title}.`;
+  syncValidateButtonState(lab);
   renderValidation(validation);
   renderCommands();
   renderRuntimePanel();
@@ -1319,6 +1428,73 @@ const interruptRuntimeStreamingCommand = async () => {
   sendRuntimeInput("\u0003");
   state.runtime.activeStreamingCommand = null;
   await delay(180);
+};
+
+const registerExecutedRuntimeCommand = (command) => {
+  const runtimeSession = getActiveRuntimeSession();
+  if (!runtimeSession) {
+    return;
+  }
+
+  const meeting = findMeetingByLabId(runtimeSession.labId);
+  if (!meeting) {
+    return;
+  }
+
+  const taskIndexes = resolveTaskIndexesForExecutedCommand(runtimeSession.labId, command);
+  if (taskIndexes.length === 0) {
+    return;
+  }
+
+  const newlyCompleted = markTaskIndexesForSession(meeting.id, taskIndexes);
+  if (newlyCompleted.length === 0) {
+    return;
+  }
+
+  renderPracticeTasks(meeting);
+  renderTimeline();
+  renderHeader();
+  renderDashboardStrip();
+  markWorkspaceDirty("Checklist atualizado automaticamente a partir do terminal.");
+  setRuntimeStatus("Checklist do laboratorio atualizado automaticamente pelo comando executado.", "success");
+};
+
+const flushRuntimeCommandBuffer = () => {
+  const command = state.runtime.commandBuffer.trim();
+  state.runtime.commandBuffer = "";
+
+  if (command) {
+    registerExecutedRuntimeCommand(command);
+  }
+};
+
+const trackRuntimeCommandInput = (data) => {
+  if (!data || data.startsWith("\u001b")) {
+    return;
+  }
+
+  for (const char of data) {
+    if (char === "\r" || char === "\n") {
+      flushRuntimeCommandBuffer();
+      continue;
+    }
+
+    if (char === "\u0003" || char === "\u0015") {
+      state.runtime.commandBuffer = "";
+      continue;
+    }
+
+    if (char === "\u007f" || char === "\b") {
+      state.runtime.commandBuffer = state.runtime.commandBuffer.slice(0, -1);
+      continue;
+    }
+
+    if (/[\u0000-\u001f]/.test(char)) {
+      continue;
+    }
+
+    state.runtime.commandBuffer += char === "\t" ? " " : char;
+  }
 };
 
 const handleCommandAction = async (commandIndex) => {
@@ -1419,6 +1595,7 @@ const syncStateFromDashboard = (dashboard) => {
     email: dashboard.student?.email || "",
     cohortCode: dashboard.cohort?.code || "",
   };
+  state.labSubmissionCounts = {};
 
   Object.values(dashboard.workspaces || {}).forEach((workspace) => {
     const meeting = findMeetingByLabId(workspace.labId);
@@ -1430,6 +1607,7 @@ const syncStateFromDashboard = (dashboard) => {
     state.drafts[workspace.labId] = workspace.solution || "";
     state.terminalLogs[workspace.labId] = workspace.terminalLog || "";
     state.workspaceUpdatedAt[workspace.labId] = workspace.updatedAt || null;
+    state.labSubmissionCounts[workspace.labId] = workspace.submissionCount || 0;
 
     if (workspace.validation) {
       if (typeof workspace.validation === "string") {
@@ -1491,6 +1669,8 @@ const ensureTerminalInstance = () => {
       return;
     }
 
+    trackRuntimeCommandInput(data);
+
     if (data === "\u0003") {
       state.runtime.activeStreamingCommand = null;
     }
@@ -1534,6 +1714,7 @@ const disconnectRuntimeTerminal = (message) => {
   state.runtime.connected = false;
   state.runtime.session = null;
   state.runtime.activeStreamingCommand = null;
+  state.runtime.commandBuffer = "";
   elements.terminalModeLabel.textContent = "Sem sessao ativa";
   if (message) {
     setRuntimeStatus(message, "muted");
@@ -1598,6 +1779,7 @@ const openRuntimeTerminal = async () => {
   disconnectRuntimeTerminal();
   state.runtime.session = session;
   state.runtime.activeStreamingCommand = null;
+  state.runtime.commandBuffer = "";
   term.reset();
   term.focus();
   term.writeln(`KubeClass runtime conectado ao namespace ${session.namespace}`);
@@ -1649,6 +1831,7 @@ const openRuntimeTerminal = async () => {
   socket.addEventListener("close", () => {
     state.runtime.connected = false;
     state.runtime.activeStreamingCommand = null;
+    state.runtime.commandBuffer = "";
     setRuntimeStatus("Conexao do terminal encerrada. Voce pode abrir novamente a sessao do lab.", "muted");
     elements.terminalModeLabel.textContent = "Sessao provisionada";
     renderRuntimePanel();
@@ -1658,6 +1841,7 @@ const openRuntimeTerminal = async () => {
   socket.addEventListener("error", () => {
     state.runtime.connected = false;
     state.runtime.activeStreamingCommand = null;
+    state.runtime.commandBuffer = "";
     setRuntimeStatus("Falha no WebSocket do terminal real.", "danger");
     showToast("Falha ao conectar o terminal real do laboratorio.", "danger");
     elements.terminalModeLabel.textContent = "Falha de conexao";
@@ -1719,6 +1903,18 @@ const validateCurrentSolution = async () => {
   const session = getActiveSession();
   const lab = session.lab;
   const solution = elements.editor.value;
+
+  if (!state.student?.id) {
+    throw new Error("Conecte um aluno antes de validar a entrega do laboratorio.");
+  }
+
+  if (hasReachedSubmissionLimit(lab.id)) {
+    const message = buildSubmissionLimitMessage(lab.id);
+    setEditorStatus(message, "warning");
+    showToast(message, "warning");
+    renderValidation(state.validations[lab.id] || null);
+    return;
+  }
 
   state.drafts[lab.id] = solution;
 
@@ -1922,9 +2118,17 @@ const attachEventListeners = () => {
       const message = normalizeErrorMessage(error, "Nao foi possivel validar a entrega agora.");
       setEditorStatus(message, "danger");
       showToast(message, "danger");
+      if (/limite de 3 tentativas/i.test(message) && state.student?.id) {
+        try {
+          await refreshDashboard();
+          render();
+        } catch {
+          // Mantem a mensagem original quando a resincronizacao falha.
+        }
+      }
     } finally {
       elements.validateButton.disabled = false;
-      elements.validateButton.textContent = "Validar entrega";
+      syncValidateButtonState();
     }
   });
 

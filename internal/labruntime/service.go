@@ -288,8 +288,11 @@ func (s *Service) ServeTerminal(response http.ResponseWriter, request *http.Requ
 	}()
 
 	defer func() {
-		if err := s.resetToolboxPod(request.Context(), session.Namespace); err != nil {
-			log.Printf("falha ao resetar toolbox pod apos fechamento do terminal: %v", err)
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cleanupCancel()
+
+		if err := s.resetLabEnvironment(cleanupCtx, session.Namespace); err != nil {
+			log.Printf("falha ao limpar namespace do lab apos fechamento do terminal: %v", err)
 		}
 	}()
 
@@ -311,34 +314,48 @@ func (s *Service) ServeTerminal(response http.ResponseWriter, request *http.Requ
 
 func (s *Service) ensureNamespace(ctx context.Context, namespace string, labels map[string]string) error {
 	client := s.clientset.CoreV1().Namespaces()
-	current, err := client.Get(ctx, namespace, metav1.GetOptions{})
-	if err == nil {
-		if current.Labels == nil {
-			current.Labels = map[string]string{}
-		}
-		for key, value := range labels {
-			current.Labels[key] = value
-		}
-		if _, err := client.Update(ctx, current, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("falha ao atualizar namespace %s: %w", namespace, err)
-		}
-		return nil
-	}
-	if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("falha ao consultar namespace %s: %w", namespace, err)
-	}
 
-	_, err = client.Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   namespace,
-			Labels: labels,
-		},
-	}, metav1.CreateOptions{})
-	if err != nil && !apierrors.IsAlreadyExists(err) {
+	for {
+		current, err := client.Get(ctx, namespace, metav1.GetOptions{})
+		if err == nil {
+			if current.DeletionTimestamp != nil {
+				if err := s.waitForNamespaceDeletion(ctx, namespace, 45*time.Second); err != nil {
+					return err
+				}
+				continue
+			}
+
+			if current.Labels == nil {
+				current.Labels = map[string]string{}
+			}
+			for key, value := range labels {
+				current.Labels[key] = value
+			}
+			if _, err := client.Update(ctx, current, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("falha ao atualizar namespace %s: %w", namespace, err)
+			}
+			return nil
+		}
+
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("falha ao consultar namespace %s: %w", namespace, err)
+		}
+
+		_, err = client.Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   namespace,
+				Labels: labels,
+			},
+		}, metav1.CreateOptions{})
+		if err == nil {
+			return nil
+		}
+		if apierrors.IsAlreadyExists(err) {
+			continue
+		}
+
 		return fmt.Errorf("falha ao criar namespace %s: %w", namespace, err)
 	}
-
-	return nil
 }
 
 func (s *Service) ensureServiceAccount(ctx context.Context, namespace string) error {
@@ -481,17 +498,12 @@ func (s *Service) ensureToolboxPod(ctx context.Context, namespace, labID string)
 	return nil
 }
 
-func (s *Service) resetToolboxPod(ctx context.Context, namespace string) error {
+func (s *Service) resetLabEnvironment(ctx context.Context, namespace string) error {
 	if !s.Enabled() {
 		return fmt.Errorf("runtime nao habilitado")
 	}
 
-	pods := s.clientset.CoreV1().Pods(namespace)
-	if err := pods.Delete(ctx, toolboxPodName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("falha ao deletar toolbox pod: %w", err)
-	}
-
-	return nil
+	return s.purgeNamespace(ctx, namespace)
 }
 
 func (s *Service) waitForToolboxReady(ctx context.Context, namespace string) error {
@@ -580,7 +592,34 @@ func (s *Service) purgeNamespace(ctx context.Context, namespace string) error {
 		return nil
 	}
 
-	return s.clientset.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{})
+	if err := s.clientset.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) waitForNamespaceDeletion(ctx context.Context, namespace string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout aguardando namespace %s ser removido", namespace)
+		}
+
+		_, err := s.clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("falha ao aguardar remocao do namespace %s: %w", namespace, err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("operacao cancelada enquanto aguardava namespace %s ser removido", namespace)
+		case <-time.After(1 * time.Second):
+		}
+	}
 }
 
 func buildConfigFromKubeconfig() (*rest.Config, error) {
