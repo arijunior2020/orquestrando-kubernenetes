@@ -702,6 +702,15 @@ const getVisibleStudents = () => {
   });
 };
 
+const getSelectedStudentSummary = () =>
+  (state.overview?.students || []).find((item) => item.student.id === state.selectedStudentId) || null;
+
+const buildPartialStudentDetail = (studentSummary) => ({
+  student: studentSummary,
+  workspaces: [],
+  submissions: [],
+});
+
 const hasCompletedTrail = (student) =>
   student.validatedLabs >= getTotalLabs() && student.completedTasks >= getTotalTasks();
 
@@ -908,7 +917,10 @@ const renderStudentList = () => {
       const tasksPercent = getTotalTasks() === 0 ? 0 : Math.round((item.completedTasks / getTotalTasks()) * 100);
 
       return `
-        <article class="admin-student-item ${isActive ? "active" : ""}">
+        <article
+          class="admin-student-item ${isActive ? "active" : ""}"
+          data-student-id="${item.student.id}"
+        >
           <div class="admin-student-topline">
             <button class="admin-select-button" data-student-id="${item.student.id}" type="button">
               <div>
@@ -985,13 +997,19 @@ const findMeetingByLabId = (labId) =>
 const renderStudentDetail = () => {
   const detail = state.selectedDetail;
   if (!detail) {
+    const selectedStudent = getSelectedStudentSummary();
+
     elements.studentDetail.innerHTML = `
       <div class="panel-header">
         <p class="eyebrow">Detalhe do aluno</p>
-        <h2>Selecione um aluno</h2>
+        <h2>${selectedStudent ? escapeHtml(selectedStudent.student.name) : "Selecione um aluno"}</h2>
       </div>
       <p class="status-text muted">
-        Clique em um aluno da lista para abrir o detalhamento de labs, submissões e nota final.
+        ${
+          selectedStudent
+            ? "O detalhamento completo ainda esta sendo carregado. A nota final ja pode ser editada."
+            : "Clique em um aluno da lista para abrir o detalhamento de labs, submissões e nota final."
+        }
       </p>
     `;
     elements.labList.innerHTML =
@@ -999,9 +1017,18 @@ const renderStudentDetail = () => {
     elements.submissionList.innerHTML =
       '<p class="empty-state">O historico de submissoes sera exibido aqui.</p>';
     elements.submissionPagination.innerHTML = "";
-    elements.gradeInput.value = "";
-    elements.gradeNotes.value = "";
-    setGradeStatus("Selecione um aluno para registrar a nota final.", "muted");
+
+    elements.gradeInput.value =
+      selectedStudent?.finalGrade === null || selectedStudent?.finalGrade === undefined
+        ? ""
+        : String(selectedStudent.finalGrade);
+    elements.gradeNotes.value = selectedStudent?.instructorNotes || "";
+    setGradeStatus(
+      selectedStudent
+        ? "Aluno identificado. O detalhe completo esta carregando, mas a nota final ja pode ser salva."
+        : "Selecione um aluno para registrar a nota final.",
+      selectedStudent ? "warning" : "muted",
+    );
     return;
   }
 
@@ -1170,6 +1197,13 @@ const loadOverview = async ({ preserveSelection = true } = {}) => {
 
   if (!state.selectedStudentId && visibleStudents.length > 0) {
     state.selectedStudentId = visibleStudents[0].student.id;
+  }
+
+  if (state.selectedStudentId && !state.selectedDetail) {
+    const selectedStudent = getSelectedStudentSummary();
+    if (selectedStudent) {
+      state.selectedDetail = buildPartialStudentDetail(selectedStudent);
+    }
   }
 
   render();
@@ -1439,19 +1473,6 @@ const attachEventListeners = () => {
   );
 
   elements.studentList.addEventListener("click", async (event) => {
-    const selectButton = event.target.closest("[data-student-id]");
-    if (selectButton) {
-      try {
-        await loadStudentDetail(Number(selectButton.dataset.studentId));
-      } catch (error) {
-        setStatus(
-          normalizeErrorMessage(error, "Nao foi possivel carregar o detalhe do aluno."),
-          "danger",
-        );
-      }
-      return;
-    }
-
     const editButton = event.target.closest("[data-student-edit]");
     if (editButton) {
       const studentID = Number(editButton.dataset.studentEdit);
@@ -1508,13 +1529,38 @@ const attachEventListeners = () => {
         setStudentStatus(message, "danger");
         showToast(message, "danger");
       }
+      return;
+    }
+
+    const selectButton = event.target.closest("[data-student-id]");
+    if (!selectButton) {
+      return;
+    }
+
+    const studentID = Number(selectButton.dataset.studentId);
+    const selected = (state.overview?.students || []).find((item) => item.student.id === studentID);
+    if (selected) {
+      state.selectedStudentId = studentID;
+      state.selectedDetail = buildPartialStudentDetail(selected);
+      renderStudentList();
+      renderStudentDetail();
+    }
+
+    try {
+      await loadStudentDetail(studentID);
+    } catch (error) {
+      setStatus(
+        normalizeErrorMessage(error, "Nao foi possivel carregar o detalhe do aluno."),
+        "danger",
+      );
     }
   });
 
   elements.gradeForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    if (!state.selectedDetail) {
+    const selectedStudent = state.selectedDetail?.student || getSelectedStudentSummary();
+    if (!selectedStudent) {
       setGradeStatus("Selecione um aluno antes de salvar a nota.", "danger");
       return;
     }
@@ -1534,8 +1580,8 @@ const attachEventListeners = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          studentId: state.selectedDetail.student.student.id,
-          cohortCode: state.selectedDetail.student.cohort.code,
+          studentId: selectedStudent.student.id,
+          cohortCode: selectedStudent.cohort.code,
           finalGrade,
           instructorNotes: elements.gradeNotes.value,
         }),
