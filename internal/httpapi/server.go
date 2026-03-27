@@ -554,6 +554,7 @@ func (s *Server) handleAdminPage(response http.ResponseWriter, request *http.Req
 		return
 	}
 
+	setNoCacheHeaders(response)
 	http.ServeFile(response, request, filepath.Join(s.staticDir, "admin.html"))
 }
 
@@ -562,6 +563,8 @@ func (s *Server) handleStatic(response http.ResponseWriter, request *http.Reques
 		writeJSON(response, http.StatusMethodNotAllowed, map[string]string{"error": "metodo nao permitido"})
 		return
 	}
+
+	setNoCacheHeaders(response)
 
 	if request.URL.Path == "/" {
 		http.ServeFile(response, request, filepath.Join(s.staticDir, "index.html"))
@@ -598,6 +601,12 @@ func (s *Server) fileExists(requestPath string) bool {
 	}
 
 	return !info.IsDir()
+}
+
+func setNoCacheHeaders(response http.ResponseWriter) {
+	response.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
+	response.Header().Set("Pragma", "no-cache")
+	response.Header().Set("Expires", "0")
 }
 
 func writeJSON(response http.ResponseWriter, statusCode int, payload any) {

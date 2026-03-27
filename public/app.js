@@ -2056,7 +2056,17 @@ const validateCurrentSolution = async () => {
 };
 
 const attachEventListeners = () => {
-  elements.accessForm.addEventListener("submit", async (event) => {
+  const on = (element, type, handler) => {
+    if (!element) {
+      console.warn(`listener ignorado: elemento ausente para evento ${type}`);
+      return false;
+    }
+
+    element.addEventListener(type, handler);
+    return true;
+  };
+
+  on(elements.accessForm, "submit", async (event) => {
     event.preventDefault();
 
     state.accessProfile = {
@@ -2122,6 +2132,10 @@ const attachEventListeners = () => {
   });
 
   [elements.accessEmail, elements.accessCohort].forEach((input) => {
+    if (!input) {
+      return;
+    }
+
     input.addEventListener("input", () => {
       state.accessProfile = {
         email: elements.accessEmail.value,
@@ -2145,7 +2159,7 @@ const attachEventListeners = () => {
     setStudentRoute(getStudentRouteKeyFromPath(window.location.pathname), { replace: true });
   });
 
-  elements.timeline.addEventListener("click", (event) => {
+  on(elements.timeline, "click", (event) => {
     const button = event.target.closest("[data-session-id]");
 
     if (!button) {
@@ -2155,19 +2169,19 @@ const attachEventListeners = () => {
     setActiveSession(button.dataset.sessionId);
   });
 
-  elements.practiceTasks.addEventListener("change", (event) => {
+  on(elements.practiceTasks, "change", (event) => {
     if (event.target instanceof HTMLInputElement && event.target.dataset.taskIndex) {
       handleTaskToggle(event.target.dataset.taskIndex, event.target.checked);
     }
   });
 
-  elements.editor.addEventListener("input", () => {
+  on(elements.editor, "input", () => {
     const lab = getActiveLab();
     state.drafts[lab.id] = elements.editor.value;
     markWorkspaceDirty("Edicao local em andamento. Salve ou valide para sincronizar.");
   });
 
-  elements.commandList.addEventListener("click", (event) => {
+  on(elements.commandList, "click", (event) => {
     const button = event.target.closest("[data-command-index]");
 
     if (!button) {
@@ -2177,14 +2191,14 @@ const attachEventListeners = () => {
     handleCommandAction(button.dataset.commandIndex);
   });
 
-  elements.resetButton.addEventListener("click", () => {
+  on(elements.resetButton, "click", () => {
     const lab = getActiveLab();
     const restoredValue = state.drafts[lab.id] || lab.starter;
     elements.editor.value = restoredValue;
     setEditorStatus("Rascunho restaurado no editor.", "muted");
   });
 
-  elements.saveWorkspaceButton.addEventListener("click", async () => {
+  on(elements.saveWorkspaceButton, "click", async () => {
     elements.saveWorkspaceButton.disabled = true;
     elements.saveWorkspaceButton.textContent = "Salvando...";
 
@@ -2200,7 +2214,7 @@ const attachEventListeners = () => {
     }
   });
 
-  elements.validateButton.addEventListener("click", async () => {
+  on(elements.validateButton, "click", async () => {
     elements.validateButton.disabled = true;
     elements.validateButton.textContent = "Validando...";
 
@@ -2224,7 +2238,7 @@ const attachEventListeners = () => {
     }
   });
 
-  elements.openRuntimeButton.addEventListener("click", async () => {
+  on(elements.openRuntimeButton, "click", async () => {
     elements.openRuntimeButton.disabled = true;
     elements.openRuntimeButton.textContent = "Abrindo...";
 
@@ -2245,17 +2259,17 @@ const attachEventListeners = () => {
     }
   });
 
-  elements.clearTerminalButton.addEventListener("click", () => {
+  on(elements.clearTerminalButton, "click", () => {
     clearTerminalView();
   });
 
-  elements.challengeOpenButton.addEventListener("click", () => {
+  on(elements.challengeOpenButton, "click", () => {
     setActiveSession("encontro-6");
     setStudentRoute("challenge");
     showToast("Encontro final aberto para revisão do desafio.", "info");
   });
 
-  elements.logoutButton.addEventListener("click", async () => {
+  on(elements.logoutButton, "click", async () => {
     try {
       await fetchJSON("/api/auth/logout", { method: "POST" });
     } catch {
