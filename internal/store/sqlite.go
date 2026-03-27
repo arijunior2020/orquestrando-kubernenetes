@@ -13,6 +13,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+const retiredChallengeLabID = "challenge-final"
+
 type SQLiteStore struct {
 	db *sql.DB
 }
@@ -554,8 +556,9 @@ func (s *SQLiteStore) LoadDashboard(ctx context.Context, studentID int64) (Dashb
 		ctx,
 		`SELECT lab_id, session_id, solution, terminal_log, validation_json, updated_at
 		 FROM workspaces
-		 WHERE student_id = ?`,
+		 WHERE student_id = ? AND lab_id <> ?`,
 		studentID,
+		retiredChallengeLabID,
 	)
 	if err != nil {
 		return Dashboard{}, fmt.Errorf("falha ao listar workspaces: %w", err)
@@ -587,9 +590,10 @@ func (s *SQLiteStore) LoadDashboard(ctx context.Context, studentID int64) (Dashb
 		ctx,
 		`SELECT lab_id, task_index
 		 FROM task_progress
-		 WHERE student_id = ? AND completed = 1
+		 WHERE student_id = ? AND completed = 1 AND lab_id <> ?
 		 ORDER BY task_index ASC`,
 		studentID,
+		retiredChallengeLabID,
 	)
 	if err != nil {
 		return Dashboard{}, fmt.Errorf("falha ao listar progresso de tarefas: %w", err)
@@ -631,8 +635,9 @@ func (s *SQLiteStore) LoadDashboard(ctx context.Context, studentID int64) (Dashb
 
 	if err := s.db.QueryRowContext(
 		ctx,
-		`SELECT COUNT(*) FROM submissions WHERE student_id = ?`,
+		`SELECT COUNT(*) FROM submissions WHERE student_id = ? AND lab_id <> ?`,
 		studentID,
+		retiredChallengeLabID,
 	).Scan(&dashboard.SubmissionCount); err != nil {
 		return Dashboard{}, fmt.Errorf("falha ao contar submisses: %w", err)
 	}
@@ -865,17 +870,19 @@ func (s *SQLiteStore) LoadAdminOverview(ctx context.Context, cohortCode string) 
 				student_id,
 				SUM(CASE WHEN validation_json LIKE '%"allPassed":true%' THEN 1 ELSE 0 END) AS validated_labs
 			FROM workspaces
+			WHERE lab_id <> ?
 			GROUP BY student_id
 		) workspace_stats ON workspace_stats.student_id = s.id
 		LEFT JOIN (
 			SELECT student_id, COUNT(*) AS completed_tasks
 			FROM task_progress
-			WHERE completed = 1
+			WHERE completed = 1 AND lab_id <> ?
 			GROUP BY student_id
 		) task_stats ON task_stats.student_id = s.id
 		LEFT JOIN (
 			SELECT student_id, COUNT(*) AS submission_count
 			FROM submissions
+			WHERE lab_id <> ?
 			GROUP BY student_id
 		) submission_stats ON submission_stats.student_id = s.id
 		LEFT JOIN (
@@ -883,14 +890,19 @@ func (s *SQLiteStore) LoadAdminOverview(ctx context.Context, cohortCode string) 
 				student_id,
 				MAX(activity_at) AS last_activity
 			FROM (
-				SELECT student_id, updated_at AS activity_at FROM workspaces
+				SELECT student_id, updated_at AS activity_at FROM workspaces WHERE lab_id <> ?
 				UNION ALL
-				SELECT student_id, created_at AS activity_at FROM submissions
+				SELECT student_id, created_at AS activity_at FROM submissions WHERE lab_id <> ?
 			)
 			GROUP BY student_id
 		) activity_stats ON activity_stats.student_id = s.id
 		WHERE (? = '' OR c.code = ?)
 		ORDER BY c.code ASC, s.name ASC`,
+		retiredChallengeLabID,
+		retiredChallengeLabID,
+		retiredChallengeLabID,
+		retiredChallengeLabID,
+		retiredChallengeLabID,
 		selectedCode,
 		selectedCode,
 	)
@@ -931,9 +943,10 @@ func (s *SQLiteStore) LoadAdminStudentDetail(ctx context.Context, studentID int6
 		ctx,
 		`SELECT lab_id, session_id, validation_json, updated_at
 		 FROM workspaces
-		 WHERE student_id = ?
+		 WHERE student_id = ? AND lab_id <> ?
 		 ORDER BY updated_at DESC`,
 		studentID,
+		retiredChallengeLabID,
 	)
 	if err != nil {
 		return detail, fmt.Errorf("falha ao listar workspaces do aluno: %w", err)
@@ -968,9 +981,10 @@ func (s *SQLiteStore) LoadAdminStudentDetail(ctx context.Context, studentID int6
 		ctx,
 		`SELECT lab_id, task_index
 		 FROM task_progress
-		 WHERE student_id = ? AND completed = 1
+		 WHERE student_id = ? AND completed = 1 AND lab_id <> ?
 		 ORDER BY task_index ASC`,
 		studentID,
+		retiredChallengeLabID,
 	)
 	if err != nil {
 		return detail, fmt.Errorf("falha ao listar tarefas do aluno: %w", err)
@@ -994,9 +1008,10 @@ func (s *SQLiteStore) LoadAdminStudentDetail(ctx context.Context, studentID int6
 		ctx,
 		`SELECT lab_id, COUNT(*) AS submission_count, MAX(created_at) AS last_submission_at, MAX(score) AS best_score, MAX(all_passed) AS any_passed
 		 FROM submissions
-		 WHERE student_id = ?
+		 WHERE student_id = ? AND lab_id <> ?
 		 GROUP BY lab_id`,
 		studentID,
+		retiredChallengeLabID,
 	)
 	if err != nil {
 		return detail, fmt.Errorf("falha ao listar estatisticas de submissao: %w", err)
@@ -1030,9 +1045,10 @@ func (s *SQLiteStore) LoadAdminStudentDetail(ctx context.Context, studentID int6
 		ctx,
 		`SELECT lab_id, score, all_passed, created_at
 		 FROM submissions
-		 WHERE student_id = ?
+		 WHERE student_id = ? AND lab_id <> ?
 		 ORDER BY created_at DESC, id DESC`,
 		studentID,
+		retiredChallengeLabID,
 	)
 	if err != nil {
 		return detail, fmt.Errorf("falha ao listar historico de submissoes: %w", err)
@@ -1116,17 +1132,19 @@ func (s *SQLiteStore) loadAdminStudentSummary(ctx context.Context, studentID int
 				student_id,
 				SUM(CASE WHEN validation_json LIKE '%"allPassed":true%' THEN 1 ELSE 0 END) AS validated_labs
 			FROM workspaces
+			WHERE lab_id <> ?
 			GROUP BY student_id
 		) workspace_stats ON workspace_stats.student_id = s.id
 		LEFT JOIN (
 			SELECT student_id, COUNT(*) AS completed_tasks
 			FROM task_progress
-			WHERE completed = 1
+			WHERE completed = 1 AND lab_id <> ?
 			GROUP BY student_id
 		) task_stats ON task_stats.student_id = s.id
 		LEFT JOIN (
 			SELECT student_id, COUNT(*) AS submission_count
 			FROM submissions
+			WHERE lab_id <> ?
 			GROUP BY student_id
 		) submission_stats ON submission_stats.student_id = s.id
 		LEFT JOIN (
@@ -1134,15 +1152,20 @@ func (s *SQLiteStore) loadAdminStudentSummary(ctx context.Context, studentID int
 				student_id,
 				MAX(activity_at) AS last_activity
 			FROM (
-				SELECT student_id, updated_at AS activity_at FROM workspaces
+				SELECT student_id, updated_at AS activity_at FROM workspaces WHERE lab_id <> ?
 				UNION ALL
-				SELECT student_id, created_at AS activity_at FROM submissions
+				SELECT student_id, created_at AS activity_at FROM submissions WHERE lab_id <> ?
 			)
 			GROUP BY student_id
 		) activity_stats ON activity_stats.student_id = s.id
 		WHERE s.id = ? AND (? = '' OR c.code = ?)
 		ORDER BY e.id DESC
 		LIMIT 1`,
+		retiredChallengeLabID,
+		retiredChallengeLabID,
+		retiredChallengeLabID,
+		retiredChallengeLabID,
+		retiredChallengeLabID,
 		studentID,
 		selectedCode,
 		selectedCode,

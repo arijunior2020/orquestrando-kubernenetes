@@ -275,32 +275,6 @@ EOF`,
       },
     ],
   },
-  "challenge-final": {
-    intro:
-      "No desafio final o editor vira o lugar da modelagem declarativa, mas o terminal continua sendo o painel de leitura operacional para rollout, debugging e verificacao da entrega.",
-    steps: [
-      {
-        title: "Revisar panorama geral do namespace",
-        command: "kubectl get deploy,svc,ingress,hpa,pods",
-        note: "Use este checkpoint depois de cada iteracao relevante do desafio.",
-      },
-      {
-        title: "Inspecionar a API do desafio",
-        command: "kubectl describe deploy orders-api",
-        note: "Valide probes, env vars, limits e eventos do backend.",
-      },
-      {
-        title: "Acompanhar estabilidade do frontend",
-        command: "kubectl rollout status deploy/storefront",
-        note: "Monitore o rollout do frontend antes da submissao final.",
-      },
-      {
-        title: "Ler os eventos mais recentes",
-        command: "kubectl get events --sort-by=.metadata.creationTimestamp",
-        note: "Feche o desafio olhando os eventos e removendo ruido operacional.",
-      },
-    ],
-  },
 };
 
 const DEFAULT_WORKFLOW = [
@@ -315,21 +289,6 @@ const DEFAULT_WORKFLOW = [
   {
     title: "Fechar com validacao e evidencia",
     note: "Use a validacao automatica para gerar checkpoint e salvar a submissao no servidor.",
-  },
-];
-
-const CHALLENGE_WORKFLOW = [
-  {
-    title: "Modelar a stack no editor",
-    note: "No desafio final o editor passa a ser o documento principal da entrega declarativa.",
-  },
-  {
-    title: "Usar o terminal para inspecao e debug",
-    note: "O terminal confirma rollout, eventos, probes, HPA e comportamento operacional da stack.",
-  },
-  {
-    title: "Validar a rubric antes de submeter",
-    note: "Feche o ciclo com a rubrica e a validacao automatica para nao deixar criterio aberto.",
   },
 ];
 
@@ -469,9 +428,6 @@ const elements = {
   studentTheoryGrid: document.querySelector("#student-theory-grid"),
   studentLabCard: document.querySelector("#student-lab-card"),
   studentWorkspaceStack: document.querySelector("#student-workspace-stack"),
-  challengeBrief: document.querySelector("#challenge-brief"),
-  challengeBriefCopy: document.querySelector("#challenge-brief-copy"),
-  challengeOpenButton: document.querySelector("#challenge-open-button"),
   sessionFocus: document.querySelector("#session-focus"),
   sessionDeliverables: document.querySelector("#session-deliverables"),
   theoryTopics: document.querySelector("#theory-topics"),
@@ -480,7 +436,6 @@ const elements = {
   labScenario: document.querySelector("#lab-scenario"),
   labObjectives: document.querySelector("#lab-objectives"),
   labHints: document.querySelector("#lab-hints"),
-  challengeRubric: document.querySelector("#challenge-rubric"),
   editor: document.querySelector("#solution-editor"),
   editorStatus: document.querySelector("#editor-status"),
   editorCallout: document.querySelector("#editor-callout"),
@@ -520,12 +475,6 @@ const STUDENT_ROUTE_CONFIG = {
     eyebrow: "Workspace",
     title: "Entrega declarativa e validação",
     copy: "Consolide o aprendizado no manifesto YAML, valide critérios e registre a evidência da aula.",
-  },
-  challenge: {
-    path: "/app/challenge",
-    eyebrow: "Desafio final",
-    title: "Entrega avaliável da disciplina",
-    copy: "Acompanhe o briefing do desafio, a rubrica de avaliação e abra rapidamente o encontro final da trilha.",
   },
 };
 
@@ -681,8 +630,7 @@ const getTerminalGuide = () => {
   };
 };
 
-const getWorkflowGuide = () =>
-  getActiveSession().id === "encontro-6" ? CHALLENGE_WORKFLOW : DEFAULT_WORKFLOW;
+const getWorkflowGuide = () => DEFAULT_WORKFLOW;
 
 const getTaskKey = (sessionId, taskIndex) => `${sessionId}:${taskIndex}`;
 
@@ -964,8 +912,8 @@ const renderCapabilities = () => {
 };
 
 const renderDashboardStrip = () => {
-  const localValidated = Object.values(state.validations).filter(
-    (result) => result?.allPassed,
+  const localValidated = state.course.meetings.filter(
+    (meeting) => state.validations[meeting.lab.id]?.allPassed,
   ).length;
   const cards = [
     {
@@ -1377,33 +1325,6 @@ const renderSessionDetails = () => {
     lab.hints,
   );
 
-  elements.challengeBriefCopy.textContent = state.course.challenge.scenario;
-
-  if (session.id === "encontro-6" || state.routeKey === "challenge") {
-    elements.challengeRubric.classList.add("visible");
-    elements.challengeRubric.innerHTML = `
-      <p class="eyebrow">Rubrica do desafio</p>
-      <h3>Distribuicao da nota final</h3>
-      <p>${escapeHtml(state.course.challenge.scenario)}</p>
-      <div class="rubric-grid">
-        ${state.course.challenge.rubric
-          .map(
-            (item) => `
-              <article class="rubric-item">
-                <span class="eyebrow">Peso</span>
-                <strong>${item.weight}%</strong>
-                <p>${escapeHtml(item.label)}</p>
-              </article>
-            `,
-          )
-          .join("")}
-      </div>
-    `;
-  } else {
-    elements.challengeRubric.classList.remove("visible");
-    elements.challengeRubric.innerHTML = "";
-  }
-
   elements.editor.value = state.drafts[lab.id] || lab.starter;
   elements.editorCallout.textContent = `${DEFAULT_EDITOR_CALLOUT} Estrutura esperada: ${lab.title}.`;
   syncValidateButtonState(lab);
@@ -1679,13 +1600,14 @@ const syncStateFromDashboard = (dashboard) => {
   state.student = dashboard.student || null;
   state.cohort = dashboard.cohort || null;
   state.submissionCount = dashboard.submissionCount || 0;
-  state.validatedLabs = dashboard.validatedLabs || 0;
+  state.validatedLabs = 0;
   state.lastSyncedAt = new Date().toISOString();
   state.accessProfile = {
     email: dashboard.student?.email || "",
     cohortCode: dashboard.cohort?.code || "",
   };
   state.labSubmissionCounts = {};
+  let validatedCurrentLabs = 0;
 
   Object.values(dashboard.workspaces || {}).forEach((workspace) => {
     const meeting = findMeetingByLabId(workspace.labId);
@@ -1718,9 +1640,14 @@ const syncStateFromDashboard = (dashboard) => {
         state.completedTasks[getTaskKey(workspace.sessionId || meeting.id, taskIndex)] =
           true;
       });
+
+      if (state.validations[workspace.labId]?.allPassed) {
+        validatedCurrentLabs += 1;
+      }
     }
   });
 
+  state.validatedLabs = validatedCurrentLabs;
   persistState();
 };
 
@@ -2262,12 +2189,6 @@ const attachEventListeners = () => {
     clearTerminalView();
   });
 
-  on(elements.challengeOpenButton, "click", () => {
-    setActiveSession("encontro-6");
-    setStudentRoute("challenge");
-    showToast("Encontro final aberto para revisão do desafio.", "info");
-  });
-
   on(elements.logoutButton, "click", async () => {
     try {
       await fetchJSON("/api/auth/logout", { method: "POST" });
@@ -2298,7 +2219,9 @@ const initialize = async () => {
     return;
   }
 
-  state.activeSessionId = state.activeSessionId || state.course.meetings[0].id;
+  if (!state.course.meetings.some((meeting) => meeting.id === state.activeSessionId)) {
+    state.activeSessionId = state.course.meetings[0].id;
+  }
 
   try {
     const auth = await fetchJSON("/api/auth/status");

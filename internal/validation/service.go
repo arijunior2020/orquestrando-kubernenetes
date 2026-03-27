@@ -175,12 +175,11 @@ func failedSemanticResults(rules []compiledRule) map[string]bool {
 
 func defaultSemanticValidators() map[string]semanticValidator {
 	return map[string]semanticValidator{
-		"lab-1":           validateLab1,
-		"lab-2":           validateLab2,
-		"lab-3":           validateLab3,
-		"lab-4":           validateLab4,
-		"lab-5":           validateLab5,
-		"challenge-final": validateChallengeFinal,
+		"lab-1": validateLab1,
+		"lab-2": validateLab2,
+		"lab-3": validateLab3,
+		"lab-4": validateLab4,
+		"lab-5": validateLab5,
 	}
 }
 
@@ -272,41 +271,6 @@ func validateLab5(manifests []manifest) map[string]bool {
 		"StatefulSet usa o serviceName correto": nestedString(specMap(statefulset), "serviceName") == "redis-headless",
 		"Persistencia com volumeClaimTemplates": len(nestedSlice(specMap(statefulset), "volumeClaimTemplates")) > 0,
 		"Job seed-cache criado":                 job != nil,
-	}
-}
-
-func validateChallengeFinal(manifests []manifest) map[string]bool {
-	namespace := findManifest(manifests, "Namespace", "delivery-final")
-	storefront := findManifest(manifests, "Deployment", "storefront")
-	storefrontService := findManifest(manifests, "Service", "storefront-svc")
-	ordersAPI := findManifest(manifests, "Deployment", "orders-api")
-	ordersService := findManifest(manifests, "Service", "orders-api-svc")
-	configMap := findManifest(manifests, "ConfigMap", "orders-config")
-	secret := findManifest(manifests, "Secret", "orders-secret")
-	ingress := findManifest(manifests, "Ingress", "delivery-ingress")
-	hpa := findManifest(manifests, "HorizontalPodAutoscaler", "orders-api-hpa")
-
-	return map[string]bool{
-		"APIs corretas dos manifests entregues": manifestUsesAPIVersion(namespace, "v1") &&
-			manifestUsesAPIVersion(storefront, "apps/v1") &&
-			manifestUsesAPIVersion(storefrontService, "v1") &&
-			manifestUsesAPIVersion(ordersAPI, "apps/v1") &&
-			manifestUsesAPIVersion(ordersService, "v1") &&
-			manifestUsesAPIVersion(configMap, "v1") &&
-			manifestUsesAPIVersion(secret, "v1") &&
-			manifestUsesAPIVersion(ingress, "networking.k8s.io/v1") &&
-			manifestUsesAPIVersion(hpa, "autoscaling/v2"),
-		"Namespace delivery-final criado":                  namespace != nil,
-		"Deployment storefront com 2 replicas":             storefront != nil && nestedInt(specMap(storefront), "replicas") == 2,
-		"Service storefront-svc criado":                    storefrontService != nil,
-		"Deployment orders-api com 2 replicas":             ordersAPI != nil && nestedInt(specMap(ordersAPI), "replicas") == 2,
-		"Service orders-api-svc criado":                    ordersService != nil,
-		"ConfigMap orders-config criado":                   configMap != nil,
-		"Secret orders-secret criado":                      secret != nil,
-		"Ingress delivery-ingress com host delivery.local": ingress != nil && ingressHasHost(ingress, "delivery.local"),
-		"Probes declaradas na API":                         hasMapKey(firstContainer(ordersAPI), "readinessProbe") && hasMapKey(firstContainer(ordersAPI), "livenessProbe"),
-		"Requests e limits presentes":                      containerHasRequestsAndLimits(firstContainer(storefront)) && containerHasRequestsAndLimits(firstContainer(ordersAPI)),
-		"HPA orders-api-hpa criado":                        hpa != nil,
 	}
 }
 
