@@ -812,10 +812,13 @@ const formatClockTime = () =>
 
 const calculateProgress = () => {
   const totalMeetings = state.course.meetings.length;
-  const completedMeetings = state.course.meetings.filter((meeting) => {
+  const localCompletedMeetings = state.course.meetings.filter((meeting) => {
     const validation = state.validations[meeting.lab.id];
     return Boolean(validation?.allPassed) && isSessionPracticeComplete(meeting);
   }).length;
+  const completedMeetings = state.student?.id
+    ? Math.min(Math.max(Number(state.validatedLabs) || 0, 0), totalMeetings)
+    : localCompletedMeetings;
   const percentage = totalMeetings === 0 ? 0 : Math.round((completedMeetings / totalMeetings) * 100);
 
   return { totalMeetings, completedMeetings, percentage };
