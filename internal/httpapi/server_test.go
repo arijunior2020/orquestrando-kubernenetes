@@ -93,7 +93,7 @@ func TestValidateEndpointReturnsChecks(t *testing.T) {
 	createTestCohort(t, server, "turma-lab", "Turma Lab")
 	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-lab", "senha123")
 
-	body := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: team-dev\n---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-lab\n  namespace: team-dev\nspec:\n  containers:\n    - name: nginx\n      image: nginx:stable"}`)
+	body := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-yaml\nspec:\n  containers:\n    - name: nginx\n      image: nginx:stable\n      ports:\n        - containerPort: 80"}`)
 	request := httptest.NewRequest(http.MethodPost, "/api/validate", bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	request.AddCookie(cookie)
@@ -122,7 +122,7 @@ func TestValidateEndpointRejectsStarterMistakes(t *testing.T) {
 	createTestCohort(t, server, "turma-lab", "Turma Lab")
 	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-lab", "senha123")
 
-	body := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v1\nkind: Namespaces\nmetadata:\n  name: team-dev\n---\napiVersion: v1\nkind: Pods\nmetadata:\n  name: nginx-lab\n  namespace: team-devs\nspec:\n  containers:\n    - name: nginx\n      image: ngnix:stable"}`)
+	body := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v12\nkind: Pods\nmetadata:\n  name: nginx-yml\nspec:\n  containers:\n    - name: nginx\n      image: ngnix:stable\n      ports:\n        - containerPort: 8080"}`)
 	request := httptest.NewRequest(http.MethodPost, "/api/validate", bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	request.AddCookie(cookie)
@@ -155,8 +155,8 @@ func TestValidateEndpointPreservesBestScoreWhenSubmissionLimitIsReached(t *testi
 	createTestCohort(t, server, "turma-lab", "Turma Lab")
 	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-lab", "senha123")
 
-	validBody := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: team-dev\n---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-lab\n  namespace: team-dev\nspec:\n  containers:\n    - name: nginx\n      image: nginx:stable"}`)
-	invalidBody := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: team-devs\n---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-lab\n  namespace: team-devs\nspec:\n  containers:\n    - name: nginx\n      image: ngnix:stable"}`)
+	validBody := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-yaml\nspec:\n  containers:\n    - name: nginx\n      image: nginx:stable\n      ports:\n        - containerPort: 80"}`)
+	invalidBody := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v12\nkind: Pod\nmetadata:\n  name: nginx-yml\nspec:\n  containers:\n    - name: nginx\n      image: ngnix:stable\n      ports:\n        - containerPort: 8080"}`)
 
 	postValidation := func(body []byte) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, "/api/validate", bytes.NewReader(body))

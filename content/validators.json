@@ -1,95 +1,83 @@
 {
   "lab-1": [
     {
-      "label": "APIs v1 nos manifests",
+      "label": "API v1 do Pod",
       "pattern": "(?mi)^apiVersion:\\s*v1\\s*$",
-      "details": "Namespace e Pod deste encontro usam `apiVersion: v1`. Se voce trocar para `v12`, a entrega deve falhar."
+      "details": "O manifesto final desta unidade deve usar `apiVersion: v1`."
     },
     {
-      "label": "Namespace team-dev criado",
-      "pattern": "(?mi)^kind:\\s*Namespace\\s*$[\\s\\S]*?^\\s*name:\\s*team-dev\\s*$",
-      "details": "A validacao procura o Namespace com nome exato `team-dev`."
+      "label": "Pod nginx-yaml criado",
+      "pattern": "(?mi)^kind:\\s*Pod\\s*$[\\s\\S]*?^\\s*name:\\s*nginx-yaml\\s*$",
+      "details": "A validacao procura um Pod chamado `nginx-yaml`."
     },
     {
-      "label": "Pod nginx-lab criado",
-      "pattern": "(?mi)^kind:\\s*Pod\\s*$[\\s\\S]*?^\\s*name:\\s*nginx-lab\\s*$",
-      "details": "O manifesto deve conter um Pod chamado `nginx-lab`."
-    },
-    {
-      "label": "Pod no namespace correto",
-      "pattern": "(?mi)^kind:\\s*Pod\\s*$[\\s\\S]*?^\\s*namespace:\\s*team-dev\\s*$",
-      "details": "O Pod precisa nascer no namespace `team-dev`."
+      "label": "Container nginx declarado",
+      "pattern": "(?mi)^\\s*-\\s*name:\\s*nginx\\s*$",
+      "details": "O container principal do Pod deve se chamar `nginx`."
     },
     {
       "label": "Imagem nginx utilizada",
       "pattern": "(?mi)^\\s*image:\\s*nginx(?:[:@][^\\s]+)?\\s*$",
-      "details": "Use uma imagem iniciando com `nginx`, por exemplo `nginx:stable`. `ngnix` e typo e nao passa."
+      "details": "Use uma imagem iniciando com `nginx`, por exemplo `nginx` ou `nginx:latest`."
+    },
+    {
+      "label": "Porta 80 exposta no container",
+      "pattern": "(?mi)^\\s*containerPort:\\s*80\\s*$",
+      "details": "O Pod final desta unidade deve expor a porta 80 no container."
     }
   ],
   "lab-2": [
     {
-      "label": "APIs corretas do Deployment e Service",
-      "pattern": "(?mi)^apiVersion:\\s*(?:v1|apps/v1)\\s*$",
-      "details": "Neste encontro espere `apiVersion: apps/v1` no Deployment e `apiVersion: v1` no Service e Namespace."
+      "label": "APIs corretas do Deployment e Services",
+      "pattern": "(?mi)^apiVersion:\\s*(?:apps/v1|v1)\\s*$",
+      "details": "Deployment usa `apps/v1`; os Services usam `v1`."
     },
     {
-      "label": "Deployment api-demo criado",
-      "pattern": "(?mi)^kind:\\s*Deployment\\s*$[\\s\\S]*?^\\s*name:\\s*api-demo\\s*$",
-      "details": "O Deployment precisa se chamar `api-demo`."
+      "label": "Deployment app-web criado",
+      "pattern": "(?mi)^kind:\\s*Deployment\\s*$[\\s\\S]*?^\\s*name:\\s*app-web\\s*$",
+      "details": "A unidade valida o Deployment `app-web`."
     },
     {
       "label": "Deployment com 3 replicas",
       "pattern": "(?mi)^kind:\\s*Deployment\\s*$[\\s\\S]*?^\\s*replicas:\\s*3\\s*$",
-      "details": "Defina `replicas: 3` no Deployment."
+      "details": "O manifesto final deve manter `replicas: 3`."
     },
     {
-      "label": "Service api-demo-svc criado",
-      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*name:\\s*api-demo-svc\\s*$",
-      "details": "O Service precisa se chamar `api-demo-svc`."
+      "label": "Service web-service criado",
+      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*name:\\s*web-service\\s*$",
+      "details": "A unidade inclui um Service interno chamado `web-service`."
     },
     {
-      "label": "Service seleciona app api-demo",
-      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*app:\\s*api-demo\\s*$",
-      "details": "O selector do Service deve apontar para `app: api-demo`."
+      "label": "Service web-nodeport criado",
+      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*name:\\s*web-nodeport\\s*$",
+      "details": "Crie o Service externo `web-nodeport`."
     },
     {
-      "label": "Porta 80 exposta",
-      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*port:\\s*80\\s*$[\\s\\S]*?^\\s*targetPort:\\s*80\\s*$",
-      "details": "Exponha `port: 80` e `targetPort: 80` no Service."
+      "label": "NodePort 30080 configurado",
+      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*nodePort:\\s*30080\\s*$",
+      "details": "A exposicao externa da pratica usa `nodePort: 30080`."
+    },
+    {
+      "label": "Readiness probe declarada",
+      "pattern": "(?mi)^\\s*readinessProbe:\\s*$",
+      "details": "Adicione readinessProbe ao container do Deployment."
+    },
+    {
+      "label": "Liveness probe declarada",
+      "pattern": "(?mi)^\\s*livenessProbe:\\s*$",
+      "details": "Adicione livenessProbe ao container do Deployment."
     }
   ],
   "lab-3": [
     {
-      "label": "APIs corretas de Service e Ingress",
-      "pattern": "(?mi)^apiVersion:\\s*(?:v1|apps/v1|networking\\.k8s\\.io/v1)\\s*$",
-      "details": "O Ingress deve usar `networking.k8s.io/v1`; Service e Namespace usam `v1`; Deployment usa `apps/v1`."
-    },
-    {
-      "label": "Service webapp-service criado",
-      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*name:\\s*webapp-service\\s*$",
-      "details": "O Service precisa se chamar `webapp-service`."
-    },
-    {
-      "label": "Ingress webapp-ingress criado",
-      "pattern": "(?mi)^kind:\\s*Ingress\\s*$[\\s\\S]*?^\\s*name:\\s*webapp-ingress\\s*$",
-      "details": "Crie um Ingress com nome `webapp-ingress`."
-    },
-    {
-      "label": "Host kubeclass.local configurado",
-      "pattern": "(?mi)^kind:\\s*Ingress\\s*$[\\s\\S]*?^\\s*host:\\s*kubeclass\\.local\\s*$",
-      "details": "A rota HTTP precisa usar `kubeclass.local`."
-    },
-    {
-      "label": "Ingress aponta para webapp-service",
-      "pattern": "(?mi)^kind:\\s*Ingress\\s*$[\\s\\S]*?^\\s*name:\\s*webapp-service\\s*$",
-      "details": "O backend do Ingress deve apontar para `webapp-service`."
-    }
-  ],
-  "lab-4": [
-    {
       "label": "APIs corretas dos manifests",
       "pattern": "(?mi)^apiVersion:\\s*(?:v1|apps/v1)\\s*$",
-      "details": "ConfigMap, Secret e Namespace usam `v1`; o Deployment usa `apps/v1`."
+      "details": "Namespace, ConfigMap, Secret e Service usam `v1`; o Deployment usa `apps/v1`."
+    },
+    {
+      "label": "Namespace laboratorio criado",
+      "pattern": "(?mi)^kind:\\s*Namespace\\s*$[\\s\\S]*?^\\s*name:\\s*laboratorio\\s*$",
+      "details": "A modelagem declarativa deve incluir o namespace `laboratorio`."
     },
     {
       "label": "ConfigMap app-config criado",
@@ -102,71 +90,113 @@
       "details": "Crie o Secret `app-secret`."
     },
     {
-      "label": "Deployment config-api criado",
-      "pattern": "(?mi)^kind:\\s*Deployment\\s*$[\\s\\S]*?^\\s*name:\\s*config-api\\s*$",
-      "details": "O Deployment precisa se chamar `config-api`."
+      "label": "Deployment app-nginx criado",
+      "pattern": "(?mi)^kind:\\s*Deployment\\s*$[\\s\\S]*?^\\s*name:\\s*app-nginx\\s*$",
+      "details": "O workload principal desta unidade se chama `app-nginx`."
     },
     {
       "label": "ConfigMap consumido via configMapKeyRef",
       "pattern": "(?mi)^\\s*configMapKeyRef:\\s*$[\\s\\S]*?^\\s*name:\\s*app-config\\s*$",
-      "details": "Consuma `app-config` com `configMapKeyRef`."
+      "details": "O Deployment deve consumir `app-config` via `configMapKeyRef`."
     },
     {
       "label": "Secret consumido via secretKeyRef",
       "pattern": "(?mi)^\\s*secretKeyRef:\\s*$[\\s\\S]*?^\\s*name:\\s*app-secret\\s*$",
-      "details": "Consuma `app-secret` com `secretKeyRef`."
+      "details": "O Deployment deve consumir `app-secret` via `secretKeyRef`."
     },
     {
-      "label": "Readiness probe declarada",
-      "pattern": "(?mi)^\\s*readinessProbe:\\s*$",
-      "details": "Adicione uma readiness probe ao container."
+      "label": "Labels de organizacao declaradas",
+      "pattern": "(?mi)^\\s*app:\\s*nginx\\s*$[\\s\\S]*?^\\s*env:\\s*laboratorio\\s*$",
+      "details": "Use labels `app: nginx` e `env: laboratorio` no Deployment."
     },
     {
-      "label": "Liveness probe declarada",
-      "pattern": "(?mi)^\\s*livenessProbe:\\s*$",
-      "details": "Adicione uma liveness probe ao container."
+      "label": "Annotation owner time-devops declarada",
+      "pattern": "(?mi)^\\s*owner:\\s*[\"']?time-devops[\"']?\\s*$",
+      "details": "A annotation `owner: time-devops` faz parte da organizacao da pratica."
     },
     {
-      "label": "Requests e limits definidos",
-      "pattern": "(?mi)^\\s*resources:\\s*$[\\s\\S]*?^\\s*requests:\\s*$[\\s\\S]*?^\\s*limits:\\s*$",
-      "details": "Defina requests e limits no container principal."
+      "label": "Service nginx-service criado",
+      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*name:\\s*nginx-service\\s*$",
+      "details": "A entrega final deve incluir o Service `nginx-service`."
+    }
+  ],
+  "lab-4": [
+    {
+      "label": "APIs corretas de storage e automacao",
+      "pattern": "(?mi)^apiVersion:\\s*(?:v1|apps/v1|batch/v1)\\s*$",
+      "details": "PV e PVC usam `v1`; StatefulSet usa `apps/v1`; Job e CronJob usam `batch/v1`."
+    },
+    {
+      "label": "PersistentVolume pv-dados criado",
+      "pattern": "(?mi)^kind:\\s*PersistentVolume\\s*$[\\s\\S]*?^\\s*name:\\s*pv-dados\\s*$",
+      "details": "A unidade valida o PV `pv-dados`."
+    },
+    {
+      "label": "PersistentVolumeClaim pvc-dados criado",
+      "pattern": "(?mi)^kind:\\s*PersistentVolumeClaim\\s*$[\\s\\S]*?^\\s*name:\\s*pvc-dados\\s*$",
+      "details": "A unidade valida o PVC `pvc-dados`."
+    },
+    {
+      "label": "StatefulSet banco criado",
+      "pattern": "(?mi)^kind:\\s*StatefulSet\\s*$[\\s\\S]*?^\\s*name:\\s*banco\\s*$",
+      "details": "Crie o StatefulSet `banco`."
+    },
+    {
+      "label": "StatefulSet com volumeClaimTemplates",
+      "pattern": "(?mi)^\\s*volumeClaimTemplates:\\s*$",
+      "details": "A camada stateful desta unidade deve usar `volumeClaimTemplates`."
+    },
+    {
+      "label": "Job job-processamento criado",
+      "pattern": "(?mi)^kind:\\s*Job\\s*$[\\s\\S]*?^\\s*name:\\s*job-processamento\\s*$",
+      "details": "Crie o Job `job-processamento`."
+    },
+    {
+      "label": "CronJob cron-backup criado",
+      "pattern": "(?mi)^kind:\\s*CronJob\\s*$[\\s\\S]*?^\\s*name:\\s*cron-backup\\s*$",
+      "details": "Crie o CronJob `cron-backup`."
     }
   ],
   "lab-5": [
     {
-      "label": "APIs corretas do StatefulSet e Job",
-      "pattern": "(?mi)^apiVersion:\\s*(?:v1|apps/v1|batch/v1)\\s*$",
-      "details": "Service e Namespace usam `v1`; StatefulSet usa `apps/v1`; Job usa `batch/v1`."
+      "label": "APIs corretas do Deployment e HPA",
+      "pattern": "(?mi)^apiVersion:\\s*(?:apps/v1|v1|autoscaling/v2)\\s*$",
+      "details": "Deployment usa `apps/v1`, Service usa `v1` e HPA usa `autoscaling/v2`."
     },
     {
-      "label": "Service redis-headless criado",
-      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*name:\\s*redis-headless\\s*$",
-      "details": "Crie o Service `redis-headless`."
+      "label": "Deployment webapp criado",
+      "pattern": "(?mi)^kind:\\s*Deployment\\s*$[\\s\\S]*?^\\s*name:\\s*webapp\\s*$",
+      "details": "A unidade valida o Deployment `webapp`."
     },
     {
-      "label": "Headless service configurado",
-      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*clusterIP:\\s*None\\s*$",
-      "details": "O Service precisa ser headless com `clusterIP: None`."
+      "label": "Deployment com 2 replicas",
+      "pattern": "(?mi)^kind:\\s*Deployment\\s*$[\\s\\S]*?^\\s*replicas:\\s*2\\s*$",
+      "details": "O workload base deve manter `replicas: 2`."
     },
     {
-      "label": "StatefulSet redis-cache criado",
-      "pattern": "(?mi)^kind:\\s*StatefulSet\\s*$[\\s\\S]*?^\\s*name:\\s*redis-cache\\s*$",
-      "details": "Crie o StatefulSet `redis-cache`."
+      "label": "Service webapp criado",
+      "pattern": "(?mi)^kind:\\s*Service\\s*$[\\s\\S]*?^\\s*name:\\s*webapp\\s*$",
+      "details": "A unidade inclui um Service interno chamado `webapp`."
     },
     {
-      "label": "StatefulSet usa o serviceName correto",
-      "pattern": "(?mi)^kind:\\s*StatefulSet\\s*$[\\s\\S]*?^\\s*serviceName:\\s*redis-headless\\s*$",
-      "details": "Configure `serviceName: redis-headless` no StatefulSet."
+      "label": "HPA webapp criado",
+      "pattern": "(?mi)^kind:\\s*HorizontalPodAutoscaler\\s*$[\\s\\S]*?^\\s*name:\\s*webapp\\s*$",
+      "details": "Crie o HPA `webapp`."
     },
     {
-      "label": "Persistencia com volumeClaimTemplates",
-      "pattern": "(?mi)^\\s*volumeClaimTemplates:\\s*$",
-      "details": "Declare `volumeClaimTemplates` para o workload stateful."
+      "label": "HPA mira o Deployment webapp",
+      "pattern": "(?mi)^\\s*scaleTargetRef:\\s*$[\\s\\S]*?^\\s*name:\\s*webapp\\s*$",
+      "details": "O HPA precisa apontar para o Deployment `webapp`."
     },
     {
-      "label": "Job seed-cache criado",
-      "pattern": "(?mi)^kind:\\s*Job\\s*$[\\s\\S]*?^\\s*name:\\s*seed-cache\\s*$",
-      "details": "Crie o Job `seed-cache`."
+      "label": "HPA com min 2 e max 10",
+      "pattern": "(?mi)^\\s*minReplicas:\\s*2\\s*$[\\s\\S]*?^\\s*maxReplicas:\\s*10\\s*$",
+      "details": "Configure o HPA com minimo 2 e maximo 10 replicas."
+    },
+    {
+      "label": "CPU alvo em 50%",
+      "pattern": "(?mi)^\\s*averageUtilization:\\s*50\\s*$",
+      "details": "A metrica alvo desta unidade usa CPU em 50%."
     }
   ]
 }
