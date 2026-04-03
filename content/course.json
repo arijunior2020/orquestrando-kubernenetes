@@ -1,288 +1,327 @@
 {
   "productName": "KubeClass Web Lab",
-  "headline": "Ambiente web para uma disciplina pratica de Orquestracao de Kubernetes",
-  "description": "Um MVP inspirado no fluxo do Girus Labs para ser hospedado na web, com trilha cronologica, aulas com teoria + pratica, validacao de laboratorios e evolucao para execucao real no cluster da disciplina.",
+  "headline": "Trilha pratica por unidades para Orquestracao de Kubernetes",
+  "description": "Ambiente web para uma disciplina pratica de Kubernetes, combinando execucao local na Unidade I, terminal real nas unidades centrais e workspace declarativo para consolidacao das entregas.",
   "format": {
     "totalMeetings": 5,
     "durationPerMeeting": "4h",
-    "model": "5 encontros com 2h teoria + 2h pratica"
+    "model": "5 unidades com 2h teoria + 2h pratica",
+    "itemLabelSingular": "unidade",
+    "itemLabelPlural": "unidades"
   },
   "capabilities": [
-    "Trilha cronologica completa da disciplina.",
-    "Laboratorios guiados com templates YAML e validacao automatica.",
-    "Rascunho salvo no navegador para cada aluno.",
-    "Base para evoluir para namespaces reais por aluno no cluster hospedado."
+    "Unidade I orientada para execucao local com WSL, Docker, Kind e kubectl.",
+    "Roteiros guiados com passos de terminal real, execucao local e registro manual quando a pratica exigir.",
+    "Workspace YAML com erros intencionais para correcao e validacao automatica.",
+    "Base para evoluir o ambiente por aluno no cluster hospedado."
   ],
   "meetings": [
     {
       "id": "encontro-1",
       "order": 1,
-      "title": "Fundamentos, arquitetura e primeiros recursos",
+      "label": "Unidade I",
+      "title": "Unidade I - Fundamentos e Estrutura do Kubernetes",
       "duration": "2h teoria + 2h pratica",
-      "focus": "Introduzir Kubernetes, arquitetura de cluster, objetos basicos e a disciplina.",
+      "focus": "Introduzir os fundamentos do Kubernetes a partir da criacao de um cluster local com Kind e da execucao dos primeiros comandos com kubectl.",
       "theoryTopics": [
-        "O que o Kubernetes resolve e onde ele entra em uma stack moderna.",
-        "Arquitetura: control plane, nodes, kubelet, API Server, etcd e scheduler.",
-        "Fluxo com `kubectl`, declaracao desejada e reconciliacao.",
-        "Boas praticas para leitura de YAML e organizacao de namespaces."
+        "Containers e aplicacoes modernas em ambientes distribuidos.",
+        "Desafios de execucao em escala e o papel da orquestracao.",
+        "Arquitetura do cluster: control plane, workers e componentes basicos.",
+        "Kubernetes como plataforma declarativa para manter estado desejado."
       ],
       "practiceTasks": [
-        "Criar um namespace dedicado da turma.",
-        "Subir um Pod simples com imagem nginx.",
-        "Aplicar, inspecionar e remover recursos com `kubectl`."
+        "Preparar o ambiente local com WSL, Docker, Kind e kubectl.",
+        "Criar o cluster local `dev-cluster` e validar o node em estado Ready.",
+        "Explorar os componentes do cluster com `kubectl get pods -A`.",
+        "Criar e inspecionar um Pod nginx em modo imperativo.",
+        "Consolidar a pratica em um manifesto YAML do Pod `nginx-yaml`."
       ],
       "deliverables": [
-        "Namespace isolado para os exercicios.",
-        "Pod funcional com imagem publica.",
-        "Checklist basico de comandos do dia."
+        "Ambiente local operacional para as proximas unidades.",
+        "Cluster Kind criado e inspecionado com kubectl.",
+        "Pod `nginx` testado por comando e Pod `nginx-yaml` modelado em YAML."
       ],
       "lab": {
         "id": "lab-1",
-        "title": "Kickoff do cluster",
-        "scenario": "Seu primeiro laboratorio prepara o ambiente da turma com isolamento basico e um Pod inicial para validar o fluxo declarativo.",
+        "title": "Cluster local e primeiro manifesto",
+        "scenario": "A primeira unidade acontece no computador do aluno. O objetivo e preparar um cluster local com Kind, executar os primeiros comandos e usar a plataforma apenas para consolidar o manifesto YAML do Pod final.",
         "objectives": [
-          "Criar o namespace `team-dev`.",
-          "Criar o Pod `nginx-lab` dentro do namespace correto.",
-          "Usar uma imagem nginx publica."
+          "Montar o ambiente local com Docker, Kind e kubectl.",
+          "Criar o cluster `dev-cluster` e validar nodes e pods do sistema.",
+          "Modelar corretamente o Pod `nginx-yaml` com imagem nginx e porta 80."
         ],
         "commands": [
           {
-            "command": "kubectl create namespace team-dev",
-            "note": "Cria o espaco logico do laboratorio."
+            "command": "kind create cluster --name dev-cluster",
+            "note": "Cria o cluster local da unidade."
           },
           {
-            "command": "kubectl get pods -n team-dev",
-            "note": "Confere o estado do Pod depois do apply."
+            "command": "kubectl get nodes",
+            "note": "Valida se o cluster subiu com node Ready."
           },
           {
-            "command": "kubectl describe pod nginx-lab -n team-dev",
-            "note": "Ajuda a interpretar eventos e condicoes do recurso."
+            "command": "kubectl run nginx --image=nginx",
+            "note": "Cria o primeiro Pod de forma imperativa."
+          },
+          {
+            "command": "kubectl apply -f nginx.yaml",
+            "note": "Aplica o manifesto declarativo produzido ao final da pratica."
           }
         ],
-        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: team-devs\n---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-lab\n  namespace: team-devs\nspec:\n  containers:\n    - name: nginx\n      image: ngnix:stable",
+        "starter": "apiVersion: v12\nkind: Pods\nmetadata:\n  name: nginx-yml\nspec:\n  containers:\n    - name: nginx\n      image: ngnix:latest\n      ports:\n        - containerPort: 8080",
         "validationId": "lab-1",
+        "executionMode": "local",
         "hints": [
-          "Se o namespace estiver no manifesto, o Pod ja pode nascer no destino correto.",
-          "O nome do Pod e o namespace fazem parte da validacao automatica."
+          "Nesta unidade o terminal da plataforma nao executa a pratica; use o roteiro como checklist local.",
+          "O workspace YAML representa apenas a parte declarativa final da atividade.",
+          "Se o Pod final for `nginx-yaml` com `image: nginx` e `containerPort: 80`, voce estara alinhado com a pratica."
         ]
       }
     },
     {
       "id": "encontro-2",
       "order": 2,
-      "title": "Deployments, replicas e exposicao com Services",
+      "label": "Unidade II",
+      "title": "Unidade II - Gerenciamento de Aplicacoes",
       "duration": "2h teoria + 2h pratica",
-      "focus": "Ensinar como sair de um Pod isolado para workloads replicados e expostos dentro do cluster.",
+      "focus": "Implementar o ciclo basico de uma aplicacao gerenciada por Deployment, Services e probes, com exposicao externa em ambiente de laboratorio.",
       "theoryTopics": [
-        "ReplicaSet, Deployment e rollout controlado.",
-        "Labels, selectors e a ligacao entre Pods e Services.",
-        "Escalabilidade horizontal basica com replicas.",
-        "Troubleshooting inicial com `describe`, `logs` e `get events`."
+        "Pods, Deployments e o controle de replicas.",
+        "Services ClusterIP e NodePort para exposicao interna e externa.",
+        "Readiness e liveness probes para resiliencia operacional.",
+        "Escalabilidade horizontal e comportamento de self-healing."
       ],
       "practiceTasks": [
-        "Criar um Deployment com 3 replicas.",
-        "Expor o workload com um Service ClusterIP.",
-        "Testar seletores e rollout de imagem."
+        "Validar o cluster antes de iniciar a aplicacao.",
+        "Criar o Deployment `app-web` com 3 replicas.",
+        "Expor a aplicacao com Service interno e NodePort 30080.",
+        "Adicionar probes ao Deployment para health checks.",
+        "Inspecionar rollout, pods e services antes da limpeza."
       ],
       "deliverables": [
-        "Deployment replicado.",
-        "Service interno do cluster.",
-        "Registro das evidencias do rollout."
+        "Deployment `app-web` com replicas declaradas.",
+        "Service `web-nodeport` com acesso na porta 30080.",
+        "Deployment com readiness e liveness probes configuradas."
       ],
       "lab": {
         "id": "lab-2",
-        "title": "API replicada e exposta internamente",
-        "scenario": "Agora o time quer deixar uma API simples preparada para trafego interno, com replicas e Service dedicado.",
+        "title": "Deployment, Service e probes",
+        "scenario": "A aplicacao nginx da turma agora precisa sair de um Pod isolado e virar um workload gerenciado, exposto externamente e minimamente protegido por health checks.",
         "objectives": [
-          "Criar o Deployment `api-demo` com 3 replicas.",
-          "Expor o Deployment via Service `api-demo-svc`.",
-          "Usar labels coerentes entre Pods e Service."
+          "Criar o Deployment `app-web` com 3 replicas.",
+          "Publicar o Service `web-nodeport` com `nodePort: 30080`.",
+          "Adicionar readinessProbe e livenessProbe ao container nginx."
         ],
         "commands": [
           {
-            "command": "kubectl rollout status deploy/api-demo -n apps",
-            "note": "Acompanha a estabilidade do rollout."
+            "command": "kubectl get deployments,pods",
+            "note": "Revisa replicas, status e pods controlados pelo Deployment."
           },
           {
-            "command": "kubectl get svc -n apps",
-            "note": "Confirma a criacao e a porta do Service."
+            "command": "kubectl get svc",
+            "note": "Confirma o Service interno e a exposicao externa via NodePort."
           },
           {
-            "command": "kubectl logs deploy/api-demo -n apps",
-            "note": "Valida se os containers iniciaram sem erro."
+            "command": "kubectl describe pod <nome-do-pod>",
+            "note": "Ajuda a conferir probes, eventos e condicoes dos Pods."
           }
         ],
-        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: apps\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api-demo\n  namespace: apps\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: api-demos\n  template:\n    metadata:\n      labels:\n        app: api-demos\n    spec:\n      containers:\n        - name: api\n          image: nginx:stable\n          ports:\n            - containerPort: 80\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: api-demo-service\n  namespace: apps\nspec:\n  selector:\n    app: api-demos\n  ports:\n    - port: 80\n      targetPort: 8080",
+        "starter": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app-web\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: web-app\n  template:\n    metadata:\n      labels:\n        app: web-app\n    spec:\n      containers:\n        - name: nginx\n          image: nginx:latest\n          ports:\n            - containerPort: 80\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: web-service\nspec:\n  type: ClusterIP\n  selector:\n    app: web-app\n  ports:\n    - port: 80\n      targetPort: 8080\n      nodePort: 30081",
         "validationId": "lab-2",
+        "executionMode": "cluster",
         "hints": [
-          "O Service precisa selecionar `app: api-demo`.",
-          "Use `port: 80` e `targetPort: 80` para manter o exercicio simples."
+          "A entrega esperada fecha com 3 replicas no Deployment, mesmo que voce teste escalas diferentes no terminal.",
+          "O Service validado e `web-nodeport`, e o `nodePort` precisa ser 30080.",
+          "Sem probes, a validacao nao considera a aplicacao pronta para operacao."
         ]
       }
     },
     {
       "id": "encontro-3",
       "order": 3,
-      "title": "Networking, Ingress e entrega da aplicacao",
+      "label": "Unidade III",
+      "title": "Unidade III - Configuracao e Organizacao no Kubernetes",
       "duration": "2h teoria + 2h pratica",
-      "focus": "Conectar Services, DNS interno, Ingress e fluxo de exposicao HTTP no cluster.",
+      "focus": "Trabalhar isolamento logico, externalizacao de configuracoes, segredos e metadados para organizar workloads reais no cluster.",
       "theoryTopics": [
-        "Service discovery e DNS interno.",
-        "ClusterIP, NodePort, LoadBalancer e quando usar cada um.",
-        "Ingress controller, regras, host e paths.",
-        "Atualizacao e rollback com impacto minimo."
+        "Namespaces como fronteira logica de isolamento.",
+        "ConfigMap e Secret para externalizacao de configuracao.",
+        "Labels e annotations para organizacao, rastreabilidade e selecao.",
+        "Services e troubleshooting basico com describe e logs."
       ],
       "practiceTasks": [
-        "Criar Service para um frontend web.",
-        "Publicar o frontend com Ingress e host dedicado.",
-        "Validar a rota e revisar o fluxo de exposicao."
+        "Usar um namespace dedicado para a pratica.",
+        "Criar `ConfigMap` e `Secret` com os dados da aplicacao.",
+        "Implantar um Deployment que consome configuracao externa.",
+        "Organizar os Pods com labels e annotations.",
+        "Expor a aplicacao via Service e revisar o comportamento."
       ],
       "deliverables": [
-        "Service funcional do frontend.",
-        "Ingress com host configurado.",
-        "Mapa de fluxo entre cliente, Ingress e Pod."
+        "Namespace `laboratorio` modelado no manifesto.",
+        "ConfigMap e Secret ligados ao Deployment `app-nginx`.",
+        "Service `nginx-service` e metadados coerentes para operacao."
       ],
       "lab": {
         "id": "lab-3",
-        "title": "Publicando a primeira aplicacao web",
-        "scenario": "A aplicacao web do time precisa ser entregue para consumo HTTP, com rota amigavel e ponto unico de entrada.",
+        "title": "Namespace, configuracao e organizacao da aplicacao",
+        "scenario": "Nesta unidade a turma passa a organizar o workload como um ambiente real: configuracao fora da imagem, credenciais separadas, labels, annotations e um Service interno para descoberta.",
         "objectives": [
-          "Criar o Service `webapp-service`.",
-          "Criar o Ingress `webapp-ingress`.",
-          "Usar o host `kubeclass.local` na regra HTTP."
+          "Declarar o namespace `laboratorio`, o ConfigMap `app-config` e o Secret `app-secret`.",
+          "Implantar o Deployment `app-nginx` consumindo ConfigMap e Secret.",
+          "Aplicar labels, annotation de owner e o Service `nginx-service`."
         ],
         "commands": [
           {
-            "command": "kubectl get ingress -n web",
-            "note": "Mostra a regra publicada."
+            "command": "kubectl get pods --show-labels",
+            "note": "Confere labels aplicadas aos Pods do namespace do aluno."
           },
           {
-            "command": "kubectl describe ingress webapp-ingress -n web",
-            "note": "Ajuda a revisar host, path e backend."
+            "command": "kubectl describe configmap app-config",
+            "note": "Inspeciona as configuracoes externalizadas."
           },
           {
-            "command": "kubectl get endpoints webapp-service -n web",
-            "note": "Confere se o Service encontrou Pods para rotear."
+            "command": "kubectl describe secret app-secret",
+            "note": "Confirma o Secret criado para a aplicacao."
+          },
+          {
+            "command": "kubectl get svc",
+            "note": "Valida a exposicao interna do Service final."
           }
         ],
-        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: web\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: webapp\n  namespace: web\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: webapp\n  template:\n    metadata:\n      labels:\n        app: webapp\n    spec:\n      containers:\n        - name: webapp\n          image: nginx:stable\n          ports:\n            - containerPort: 80\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: webapp-svc\n  namespace: web\nspec:\n  selector:\n    app: webapp\n  ports:\n    - port: 80\n      targetPort: 80\n---\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: webapp-ingress\n  namespace: web\nspec:\n  rules:\n    - host: kubeclass.locals\n      http:\n        paths:\n          - path: /\n            pathType: Prefix\n            backend:\n              service:\n                name: webapp-svc\n                port:\n                  number: 80",
+        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: laboratorios\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: app-configs\n  namespace: laboratorios\ndata:\n  APP_MODE: \"producao\"\n  APP_PORT: \"80\"\n  APP_COLOR: \"blue\"\n---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: app-secrets\n  namespace: laboratorios\ntype: Opaque\nstringData:\n  APP_USER: \"admin\"\n  APP_PASSWORD: \"123456\"\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app-nginx\n  namespace: laboratorios\n  labels:\n    app: nginx\n    env: laboratorio-dev\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: nginx\n  template:\n    metadata:\n      labels:\n        app: nginx\n        env: laboratorio-dev\n      annotations:\n        owner: \"time-app\"\n        version: \"0.9\"\n    spec:\n      containers:\n        - name: nginx\n          image: nginx:latest\n          ports:\n            - containerPort: 80\n          env:\n            - name: APP_MODE\n              valueFrom:\n                configMapKeyRef:\n                  name: app-configs\n                  key: APP_MODE\n            - name: APP_USER\n              valueFrom:\n                secretKeyRef:\n                  name: app-secrets\n                  key: APP_USER\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: nginx-svc\n  namespace: laboratorios\nspec:\n  selector:\n    app: nginx\n  ports:\n    - port: 80\n      targetPort: 80\n  type: ClusterIP",
         "validationId": "lab-3",
+        "executionMode": "cluster",
         "hints": [
-          "No Ingress, use o backend apontando para `webapp-service`.",
-          "A validacao verifica especificamente o host `kubeclass.local`."
+          "No runtime da plataforma o namespace isolado do aluno ja existe; use-o como equivalente operacional do namespace `laboratorio`.",
+          "A validacao procura os nomes `app-config`, `app-secret` e `nginx-service`.",
+          "A annotation critica desta unidade e `owner: time-devops`."
         ]
       }
     },
     {
       "id": "encontro-4",
       "order": 4,
-      "title": "Configuracao, segredos, probes e recursos",
+      "label": "Unidade IV",
+      "title": "Unidade IV - Persistencia e Automacao no Kubernetes",
       "duration": "2h teoria + 2h pratica",
-      "focus": "Preparar workloads para operacao realista com configuracao externa, health checks e limites.",
+      "focus": "Conectar armazenamento persistente, workload stateful e automacoes de processamento com Job e CronJob.",
       "theoryTopics": [
-        "ConfigMap e Secret como desacoplamento de configuracao.",
-        "Env vars, volumes e consumo de configuracao em Pods.",
-        "Readiness, liveness e startup probe.",
-        "Requests, limits e o impacto no agendamento."
+        "PersistentVolume, PersistentVolumeClaim e o ciclo de armazenamento.",
+        "StatefulSet e identidade estavel para workloads stateful.",
+        "Jobs para processamento pontual e CronJobs para rotinas agendadas.",
+        "Persistencia, reinicio de Pods e observacao da camada de dados."
       ],
       "practiceTasks": [
-        "Criar ConfigMap e Secret para uma API.",
-        "Consumir as configuracoes no Deployment.",
-        "Adicionar readiness/liveness e recursos minimos."
+        "Modelar armazenamento com `PersistentVolume` e `PersistentVolumeClaim`.",
+        "Criar o StatefulSet `banco` com persistencia declarativa.",
+        "Executar o Job `job-processamento`.",
+        "Agendar o CronJob `cron-backup`.",
+        "Revisar persistencia, automacao e limpeza do ambiente."
       ],
       "deliverables": [
-        "Workload configuravel sem hardcode.",
-        "Probes e recursos declarados.",
-        "Checklist de validacao operacional."
+        "Manifestos de PV e PVC com nomenclatura correta.",
+        "StatefulSet `banco` com `volumeClaimTemplates`.",
+        "Job `job-processamento` e CronJob `cron-backup` declarados."
       ],
       "lab": {
         "id": "lab-4",
-        "title": "API pronta para operacao",
-        "scenario": "A API agora precisa ficar minimamente preparada para operacao: configuracao externa, probes e controle de recursos.",
+        "title": "Persistencia e automacao da camada stateful",
+        "scenario": "A aplicacao agora precisa combinar dados persistentes e automacoes de manutencao. A unidade mistura recursos stateful, processamento pontual e tarefas agendadas.",
         "objectives": [
-          "Criar `ConfigMap` e `Secret` com nomes definidos.",
-          "Ligar a configuracao ao Deployment.",
-          "Adicionar readiness, liveness, requests e limits."
+          "Criar `PersistentVolume` `pv-dados` e `PersistentVolumeClaim` `pvc-dados`.",
+          "Declarar o StatefulSet `banco` com `volumeClaimTemplates`.",
+          "Adicionar o Job `job-processamento` e o CronJob `cron-backup`."
         ],
         "commands": [
           {
-            "command": "kubectl describe deploy config-api -n config",
-            "note": "Mostra env vars, probes e recursos do Deployment."
+            "command": "kubectl get pvc,statefulset,pods",
+            "note": "Revisa os recursos namespaced da camada stateful no runtime."
           },
           {
-            "command": "kubectl get configmap,secret -n config",
-            "note": "Confere os artefatos de configuracao."
+            "command": "kubectl get jobs,cronjobs",
+            "note": "Confirma a criacao do Job e do CronJob da unidade."
           },
           {
-            "command": "kubectl get pod -n config -w",
-            "note": "Ajuda a observar o ciclo do Pod com probes."
+            "command": "kubectl logs job/job-processamento",
+            "note": "Consulta o processamento executado pelo Job."
           }
         ],
-        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: config\n---\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: app-configs\n  namespace: config\ndata:\n  APP_MODE: \"dev\"\n---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: app-secrets\n  namespace: config\ntype: Opaque\nstringData:\n  API_KEY: \"trocar-antes-de-produzir\"\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: config-api\n  namespace: config\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: config-api\n  template:\n    metadata:\n      labels:\n        app: config-api\n    spec:\n      containers:\n        - name: api\n          image: nginx:stable\n          ports:\n            - containerPort: 80\n          env:\n            - name: APP_MODE\n              valueFrom:\n                configMapKeyRef:\n                  name: app-configs\n                  key: APP_MODE\n            - name: API_KEY\n              valueFrom:\n                secretKeyRef:\n                  name: app-secrets\n                  key: API_KEY\n          readinessProbe:\n            httpGet:\n              path: /\n              port: 80\n          resources:\n            requests:\n              cpu: \"100m\"\n              memory: \"128Mi\"\n            limits:\n              cpu: \"250m\"\n              memory: \"256Mi\"",
+        "starter": "apiVersion: v1\nkind: PersistentVolume\nmetadata:\n  name: pv-dado\nspec:\n  capacity:\n    storage: 1Gi\n  accessModes:\n    - ReadWriteMany\n  hostPath:\n    path: /mnt/data\n---\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: pvc-dado\nspec:\n  accessModes:\n    - ReadWriteMany\n  resources:\n    requests:\n      storage: 1Gi\n---\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: bancos\nspec:\n  serviceName: banco\n  replicas: 1\n  selector:\n    matchLabels:\n      app: banco\n  template:\n    metadata:\n      labels:\n        app: banco\n    spec:\n      containers:\n        - name: mysql\n          image: mysql:8.0\n          env:\n            - name: MYSQL_ROOT_PASSWORD\n              value: \"123456\"\n          volumeMounts:\n            - name: dados\n              mountPath: /var/lib/mysql\n---\napiVersion: batch/v1\nkind: Job\nmetadata:\n  name: processamento-job\nspec:\n  template:\n    spec:\n      restartPolicy: Never\n      containers:\n        - name: processador\n          image: python:3.11\n          command: [\"python\", \"-c\", \"print('Processando dados...')\"]\n---\napiVersion: batch/v1\nkind: CronJob\nmetadata:\n  name: cron-backups\nspec:\n  schedule: \"*/5 * * * *\"\n  jobTemplate:\n    spec:\n      template:\n        spec:\n          restartPolicy: OnFailure\n          containers:\n            - name: backup\n              image: alpine\n              command: [\"sh\", \"-c\", \"echo Backup executado\"]",
         "validationId": "lab-4",
+        "executionMode": "cluster",
         "hints": [
-          "A validacao procura `configMapKeyRef` e `secretKeyRef` no manifesto.",
-          "Defina requests e limits no mesmo container da API."
+          "No runtime do aluno, prefira executar a parte namespaced da unidade e deixe o PV registrado no manifesto declarativo.",
+          "A validacao procura exatamente `pv-dados`, `pvc-dados`, `banco`, `job-processamento` e `cron-backup`.",
+          "Sem `volumeClaimTemplates`, o StatefulSet nao fecha o objetivo principal da unidade."
         ]
       }
     },
     {
       "id": "encontro-5",
       "order": 5,
-      "title": "Stateful workloads, Jobs, observabilidade e revisao",
+      "label": "Unidade V",
+      "title": "Unidade V - Escalabilidade, Rollouts e Helm",
       "duration": "2h teoria + 2h pratica",
-      "focus": "Fechar o ciclo com workloads stateful, tarefas pontuais e revisao integrada dos cinco encontros.",
+      "focus": "Fechar a trilha com autoscaling, rolling updates, rollback e o fluxo de empacotamento e operacao com Helm.",
       "theoryTopics": [
-        "Diferenca entre Deployment e StatefulSet.",
-        "VolumeClaimTemplates, headless Service e identidade de Pods.",
-        "Jobs, CronJobs e tarefas pontuais de manutencao.",
-        "Revisao geral da disciplina e consolidacao dos padroes vistos ate aqui."
+        "Horizontal Pod Autoscaler e ajuste de replicas por demanda.",
+        "Rolling update e rollback para deploys controlados.",
+        "Historico de rollout e leitura operacional do Deployment.",
+        "Helm como camada de empacotamento, upgrade e reversao."
       ],
       "practiceTasks": [
-        "Criar um StatefulSet com persistencia declarativa.",
-        "Criar um headless Service para descoberta estavel.",
-        "Adicionar um Job de inicializacao do ambiente."
+        "Criar o Deployment `webapp` e o Service da aplicacao.",
+        "Configurar o HPA com minimo 2 replicas e maximo 10.",
+        "Executar um rolling update da imagem nginx.",
+        "Realizar rollback e consultar o historico do Deployment.",
+        "Registrar o fluxo equivalente com Helm para deploy, upgrade e rollback."
       ],
       "deliverables": [
-        "StatefulSet com volumeClaimTemplates.",
-        "Headless Service funcional.",
-        "Job de bootstrap do ambiente."
+        "Deployment `webapp` com 2 replicas e Service interno.",
+        "HorizontalPodAutoscaler apontando para `webapp`.",
+        "Registro do fluxo de rollout, rollback e comandos Helm da unidade."
       ],
       "lab": {
         "id": "lab-5",
-        "title": "Camada stateful e job de bootstrap",
-        "scenario": "O ambiente agora precisa de um componente stateful com identidade estavel e um Job de preparacao antes da liberacao da stack.",
+        "title": "Operacao da aplicacao com HPA e rollout controlado",
+        "scenario": "A ultima unidade aproxima a turma de um fluxo operacional real: a aplicacao precisa escalar, ser atualizada sem parada total, voltar de versao quando necessario e ser pensada em termos de Helm.",
         "objectives": [
-          "Criar o StatefulSet `redis-cache`.",
-          "Criar o headless Service `redis-headless`.",
-          "Criar o Job `seed-cache`."
+          "Declarar o Deployment `webapp` com 2 replicas.",
+          "Criar o Service `webapp` e o HPA `webapp` com CPU alvo de 50%.",
+          "Praticar rolling update, rollback e registrar os comandos principais de Helm."
         ],
         "commands": [
           {
-            "command": "kubectl get statefulset,pvc -n data",
-            "note": "Confere a camada persistente e os PVCs gerados."
+            "command": "kubectl get hpa",
+            "note": "Mostra o autoscaler configurado para o workload."
           },
           {
-            "command": "kubectl get svc redis-headless -n data -o yaml",
-            "note": "Valida se o Service esta headless (`clusterIP: None`)."
+            "command": "kubectl rollout status deployment/webapp",
+            "note": "Acompanha o rollout da nova imagem."
           },
           {
-            "command": "kubectl get job -n data",
-            "note": "Monitora a execucao do Job de bootstrap."
+            "command": "kubectl rollout history deployment/webapp",
+            "note": "Consulta o historico antes ou depois do rollback."
+          },
+          {
+            "command": "helm list",
+            "note": "Referencia final para o fluxo equivalente com Helm."
           }
         ],
-        "starter": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: data\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: redis-headlesss\n  namespace: data\nspec:\n  clusterIP: Nones\n  selector:\n    app: redis-cache\n  ports:\n    - port: 6379\n      targetPort: 6379\n---\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: redis-cache\n  namespace: data\nspec:\n  serviceName: redis-headlesss\n  replicas: 1\n  selector:\n    matchLabels:\n      app: redis-cache\n  template:\n    metadata:\n      labels:\n        app: redis-cache\n    spec:\n      containers:\n        - name: redis\n          image: redis:7\n          ports:\n            - containerPort: 6379\n          volumeMounts:\n            - name: data\n              mountPath: /data\n  volumeClaimTemplates:\n    - metadata:\n        name: data\n      spec:\n        accessModes: [\"ReadWriteOnce\"]\n        resources:\n          requests:\n            storage: 1Gi\n---\napiVersion: batch/v1\nkind: Job\nmetadata:\n  name: seed-caches\n  namespace: data\nspec:\n  template:\n    spec:\n      restartPolicy: Never\n      containers:\n        - name: seed\n          image: busybox:1.36\n          command: [\"sh\", \"-c\", \"echo cache preparado\"]",
+        "starter": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: webapps\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: webapp\n  template:\n    metadata:\n      labels:\n        app: webapp\n    spec:\n      containers:\n        - name: nginx\n          image: nginx:latest\n          ports:\n            - containerPort: 80\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: webapp-svc\nspec:\n  selector:\n    app: webapp\n  ports:\n    - port: 80\n      targetPort: 8080\n  type: NodePort\n---\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: webapps\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n    kind: Deployment\n    name: webapps\n  minReplicas: 1\n  maxReplicas: 5\n  metrics:\n    - type: Resource\n      resource:\n        name: cpu\n        target:\n          type: Utilization\n          averageUtilization: 70",
         "validationId": "lab-5",
+        "executionMode": "cluster",
         "hints": [
-          "No headless Service a chave critica e `clusterIP: None`.",
-          "O StatefulSet precisa referenciar o serviceName correto."
+          "A validacao YAML fecha em Deployment + Service + HPA; rollout e Helm entram pelo roteiro e pelo diario do lab.",
+          "O HPA deve mirar o Deployment `webapp`, com `minReplicas: 2`, `maxReplicas: 10` e CPU em 50.",
+          "Se o runtime nao tiver Helm instalado, registre os passos finais no diario e mantenha o manifesto declarativo correto."
         ]
       }
     }
   ],
   "roadmap": [
-    "Fase 1: usar esta interface como LMS tecnico com validacao de YAML e acompanhamento de progresso.",
-    "Fase 2: conectar cada aluno a um namespace efemero no cluster hospedado com terminal web real.",
-    "Fase 3: transformar labs em definicoes versionadas, com turmas, notas e operacao academica completa."
+    "Fase 1: consolidar a trilha atual por unidades, com execucao local na Unidade I e runtime guiado nas demais.",
+    "Fase 2: ampliar a cobertura do runtime para cenarios avancados de storage, autoscaling e operacao assistida.",
+    "Fase 3: transformar os labs em definicoes versionadas por turma, com notas, historico e operacao academica completa."
   ]
 }

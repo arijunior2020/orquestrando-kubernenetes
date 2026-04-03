@@ -16,19 +16,15 @@ func TestValidateReturnsSuccessForLab1(t *testing.T) {
 	result, err := service.Validate(
 		"lab-1",
 		`apiVersion: v1
-kind: Namespace
-metadata:
-  name: team-dev
----
-apiVersion: v1
 kind: Pod
 metadata:
-  name: nginx-lab
-  namespace: team-dev
+  name: nginx-yaml
 spec:
   containers:
     - name: nginx
-      image: nginx:stable`,
+      image: nginx:stable
+      ports:
+        - containerPort: 80`,
 	)
 	if err != nil {
 		t.Fatalf("nao esperava erro ao validar: %v", err)
@@ -63,19 +59,15 @@ func TestValidateRejectsInvalidAPIVersionForLab1(t *testing.T) {
 	result, err := service.Validate(
 		"lab-1",
 		`apiVersion: v12
-kind: Namespace
-metadata:
-  name: team-dev
----
-apiVersion: v12
 kind: Pod
 metadata:
-  name: nginx-lab
-  namespace: team-dev
+  name: nginx-yaml
 spec:
   containers:
     - name: nginx
-      image: nginx:stable`,
+      image: nginx:stable
+      ports:
+        - containerPort: 80`,
 	)
 	if err != nil {
 		t.Fatalf("nao esperava erro ao validar manifesto parseavel: %v", err)
@@ -87,7 +79,7 @@ spec:
 
 	foundAPIError := false
 	for _, check := range result.Checks {
-		if check.Label == "APIs v1 nos manifests" {
+		if check.Label == "API v1 do Pod" {
 			foundAPIError = true
 			if check.Passed {
 				t.Fatal("esperava check de apiVersion reprovado")
@@ -97,5 +89,74 @@ spec:
 
 	if !foundAPIError {
 		t.Fatal("esperava check especifico de apiVersion na validacao")
+	}
+}
+
+func TestValidateReturnsSuccessForLab5(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(filepath.Join("..", "..", "content", "validators.json"))
+	if err != nil {
+		t.Fatalf("falha ao carregar validadores: %v", err)
+	}
+
+	result, err := service.Validate(
+		"lab-5",
+		`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp
+spec:
+  selector:
+    app: webapp
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: webapp
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: webapp
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50`,
+	)
+	if err != nil {
+		t.Fatalf("nao esperava erro ao validar lab-5: %v", err)
+	}
+
+	if !result.AllPassed {
+		t.Fatalf("esperava validacao completa do lab-5, recebeu %+v", result)
 	}
 }

@@ -126,7 +126,7 @@ const ADMIN_ROUTE_CONFIG = {
   labs: {
     path: "/admin/labs",
     eyebrow: "Labs",
-    title: "Inspecionar progresso por encontro",
+    title: "Inspecionar progresso por unidade",
     copy: "Veja o status de cada laboratório, os checkpoints validados e o ritmo de execução por aluno.",
   },
   submissions: {
@@ -1119,7 +1119,7 @@ const renderStudentDetail = () => {
         <article class="admin-lab-item">
           <div class="admin-lab-header">
             <div>
-              <span class="hero-label">Encontro ${meeting.order}</span>
+              <span class="hero-label">${escapeHtml(meeting.label || `Unidade ${meeting.order}`)}</span>
               <h3>${escapeHtml(meeting.title)}</h3>
             </div>
             <span class="timeline-status ${validationStatus.tone}">${escapeHtml(validationStatus.label)}</span>

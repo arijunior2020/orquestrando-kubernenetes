@@ -184,93 +184,102 @@ func defaultSemanticValidators() map[string]semanticValidator {
 }
 
 func validateLab1(manifests []manifest) map[string]bool {
-	namespace := findManifest(manifests, "Namespace", "team-dev")
-	pod := findManifest(manifests, "Pod", "nginx-lab")
+	pod := findManifest(manifests, "Pod", "nginx-yaml")
+	container := firstContainer(pod)
 
 	return map[string]bool{
-		"APIs v1 nos manifests":     manifestUsesAPIVersion(namespace, "v1") && manifestUsesAPIVersion(pod, "v1"),
-		"Namespace team-dev criado": namespace != nil,
-		"Pod nginx-lab criado":      pod != nil,
-		"Pod no namespace correto":  pod != nil && metadataString(pod, "namespace") == "team-dev",
-		"Imagem nginx utilizada":    strings.HasPrefix(firstContainerImage(pod), "nginx"),
+		"API v1 do Pod":                  manifestUsesAPIVersion(pod, "v1"),
+		"Pod nginx-yaml criado":         pod != nil,
+		"Container nginx declarado":     nestedString(container, "name") == "nginx",
+		"Imagem nginx utilizada":        strings.HasPrefix(firstContainerImage(pod), "nginx"),
+		"Porta 80 exposta no container": containerPortDeclared(container, 80),
 	}
 }
 
 func validateLab2(manifests []manifest) map[string]bool {
-	namespace := findManifest(manifests, "Namespace", "apps")
-	deployment := findManifest(manifests, "Deployment", "api-demo")
-	service := findManifest(manifests, "Service", "api-demo-svc")
+	deployment := findManifest(manifests, "Deployment", "app-web")
+	internalService := findManifest(manifests, "Service", "web-service")
+	nodePortService := findManifest(manifests, "Service", "web-nodeport")
+	container := firstContainer(deployment)
 
 	return map[string]bool{
-		"APIs corretas do Deployment e Service": manifestUsesAPIVersion(namespace, "v1") &&
-			manifestUsesAPIVersion(deployment, "apps/v1") &&
-			manifestUsesAPIVersion(service, "v1"),
-		"Deployment api-demo criado":     deployment != nil,
-		"Deployment com 3 replicas":      deployment != nil && nestedInt(specMap(deployment), "replicas") == 3,
-		"Service api-demo-svc criado":    service != nil,
-		"Service seleciona app api-demo": selectorValue(service, "app") == "api-demo",
-		"Porta 80 exposta":               serviceHasPort(service, 80, 80),
+		"APIs corretas do Deployment e Services": manifestUsesAPIVersion(deployment, "apps/v1") &&
+			manifestUsesAPIVersion(internalService, "v1") &&
+			manifestUsesAPIVersion(nodePortService, "v1"),
+		"Deployment app-web criado":     deployment != nil,
+		"Deployment com 3 replicas":     nestedInt(specMap(deployment), "replicas") == 3,
+		"Service web-service criado":    internalService != nil,
+		"Service web-nodeport criado":   nodePortService != nil,
+		"NodePort 30080 configurado":    serviceHasNodePort(nodePortService, 80, 80, 30080),
+		"Readiness probe declarada":     hasMapKey(container, "readinessProbe"),
+		"Liveness probe declarada":      hasMapKey(container, "livenessProbe"),
 	}
 }
 
 func validateLab3(manifests []manifest) map[string]bool {
-	namespace := findManifest(manifests, "Namespace", "web")
-	deployment := findManifest(manifests, "Deployment", "webapp")
-	service := findManifest(manifests, "Service", "webapp-service")
-	ingress := findManifest(manifests, "Ingress", "webapp-ingress")
-
-	return map[string]bool{
-		"APIs corretas de Service e Ingress": manifestUsesAPIVersion(namespace, "v1") &&
-			manifestUsesAPIVersion(deployment, "apps/v1") &&
-			manifestUsesAPIVersion(service, "v1") &&
-			manifestUsesAPIVersion(ingress, "networking.k8s.io/v1"),
-		"Service webapp-service criado":      service != nil,
-		"Ingress webapp-ingress criado":      ingress != nil,
-		"Host kubeclass.local configurado":   ingressHasHost(ingress, "kubeclass.local"),
-		"Ingress aponta para webapp-service": ingressUsesService(ingress, "webapp-service"),
-	}
-}
-
-func validateLab4(manifests []manifest) map[string]bool {
-	namespace := findManifest(manifests, "Namespace", "config")
+	namespace := findManifest(manifests, "Namespace", "laboratorio")
 	configMap := findManifest(manifests, "ConfigMap", "app-config")
 	secret := findManifest(manifests, "Secret", "app-secret")
-	deployment := findManifest(manifests, "Deployment", "config-api")
+	deployment := findManifest(manifests, "Deployment", "app-nginx")
+	service := findManifest(manifests, "Service", "nginx-service")
 	container := firstContainer(deployment)
 
 	return map[string]bool{
 		"APIs corretas dos manifests": manifestUsesAPIVersion(namespace, "v1") &&
 			manifestUsesAPIVersion(configMap, "v1") &&
 			manifestUsesAPIVersion(secret, "v1") &&
-			manifestUsesAPIVersion(deployment, "apps/v1"),
-		"ConfigMap app-config criado":             configMap != nil,
-		"Secret app-secret criado":                secret != nil,
-		"Deployment config-api criado":            deployment != nil,
-		"ConfigMap consumido via configMapKeyRef": containerEnvRef(container, "configMapKeyRef", "app-config"),
-		"Secret consumido via secretKeyRef":       containerEnvRef(container, "secretKeyRef", "app-secret"),
-		"Readiness probe declarada":               hasMapKey(container, "readinessProbe"),
-		"Liveness probe declarada":                hasMapKey(container, "livenessProbe"),
-		"Requests e limits definidos":             containerHasRequestsAndLimits(container),
+			manifestUsesAPIVersion(deployment, "apps/v1") &&
+			manifestUsesAPIVersion(service, "v1"),
+		"Namespace laboratorio criado":              namespace != nil,
+		"ConfigMap app-config criado":               configMap != nil,
+		"Secret app-secret criado":                  secret != nil,
+		"Deployment app-nginx criado":               deployment != nil,
+		"ConfigMap consumido via configMapKeyRef":   containerEnvRef(container, "configMapKeyRef", "app-config"),
+		"Secret consumido via secretKeyRef":         containerEnvRef(container, "secretKeyRef", "app-secret"),
+		"Labels de organizacao declaradas":          manifestHasLabel(deployment, "app", "nginx") && manifestHasLabel(deployment, "env", "laboratorio"),
+		"Annotation owner time-devops declarada":    manifestHasAnnotation(deployment, "owner", "time-devops"),
+		"Service nginx-service criado":              service != nil,
+	}
+}
+
+func validateLab4(manifests []manifest) map[string]bool {
+	persistentVolume := findManifest(manifests, "PersistentVolume", "pv-dados")
+	claim := findManifest(manifests, "PersistentVolumeClaim", "pvc-dados")
+	statefulset := findManifest(manifests, "StatefulSet", "banco")
+	job := findManifest(manifests, "Job", "job-processamento")
+	cronJob := findManifest(manifests, "CronJob", "cron-backup")
+
+	return map[string]bool{
+		"APIs corretas de storage e automacao": manifestUsesAPIVersion(persistentVolume, "v1") &&
+			manifestUsesAPIVersion(claim, "v1") &&
+			manifestUsesAPIVersion(statefulset, "apps/v1") &&
+			manifestUsesAPIVersion(job, "batch/v1") &&
+			manifestUsesAPIVersion(cronJob, "batch/v1"),
+		"PersistentVolume pv-dados criado":      persistentVolume != nil,
+		"PersistentVolumeClaim pvc-dados criado": claim != nil,
+		"StatefulSet banco criado":              statefulset != nil,
+		"StatefulSet com volumeClaimTemplates":  len(nestedSlice(specMap(statefulset), "volumeClaimTemplates")) > 0,
+		"Job job-processamento criado":          job != nil,
+		"CronJob cron-backup criado":            cronJob != nil,
 	}
 }
 
 func validateLab5(manifests []manifest) map[string]bool {
-	namespace := findManifest(manifests, "Namespace", "data")
-	service := findManifest(manifests, "Service", "redis-headless")
-	statefulset := findManifest(manifests, "StatefulSet", "redis-cache")
-	job := findManifest(manifests, "Job", "seed-cache")
+	deployment := findManifest(manifests, "Deployment", "webapp")
+	service := findManifest(manifests, "Service", "webapp")
+	hpa := findManifest(manifests, "HorizontalPodAutoscaler", "webapp")
 
 	return map[string]bool{
-		"APIs corretas do StatefulSet e Job": manifestUsesAPIVersion(namespace, "v1") &&
+		"APIs corretas do Deployment e HPA": manifestUsesAPIVersion(deployment, "apps/v1") &&
 			manifestUsesAPIVersion(service, "v1") &&
-			manifestUsesAPIVersion(statefulset, "apps/v1") &&
-			manifestUsesAPIVersion(job, "batch/v1"),
-		"Service redis-headless criado":         service != nil,
-		"Headless service configurado":          strings.EqualFold(nestedString(specMap(service), "clusterIP"), "None"),
-		"StatefulSet redis-cache criado":        statefulset != nil,
-		"StatefulSet usa o serviceName correto": nestedString(specMap(statefulset), "serviceName") == "redis-headless",
-		"Persistencia com volumeClaimTemplates": len(nestedSlice(specMap(statefulset), "volumeClaimTemplates")) > 0,
-		"Job seed-cache criado":                 job != nil,
+			manifestUsesAPIVersion(hpa, "autoscaling/v2"),
+		"Deployment webapp criado":        deployment != nil,
+		"Deployment com 2 replicas":       nestedInt(specMap(deployment), "replicas") == 2,
+		"Service webapp criado":           service != nil,
+		"HPA webapp criado":               hpa != nil,
+		"HPA mira o Deployment webapp":    hpaTargetsDeployment(hpa, "webapp"),
+		"HPA com min 2 e max 10":          nestedInt(specMap(hpa), "minReplicas") == 2 && nestedInt(specMap(hpa), "maxReplicas") == 10,
+		"CPU alvo em 50%":                 hpaHasCPUUtilizationTarget(hpa, 50),
 	}
 }
 
@@ -327,6 +336,17 @@ func firstContainerImage(item manifest) string {
 	return nestedString(firstContainer(item), "image")
 }
 
+func containerPortDeclared(container map[string]any, expected int) bool {
+	ports := nestedSlice(container, "ports")
+	for _, raw := range ports {
+		if nestedInt(toMap(raw), "containerPort") == expected {
+			return true
+		}
+	}
+
+	return false
+}
+
 func selectorValue(item manifest, key string) string {
 	return nestedString(specMap(item), "selector", key)
 }
@@ -336,6 +356,20 @@ func serviceHasPort(item manifest, port, targetPort int) bool {
 	for _, raw := range ports {
 		portSpec := toMap(raw)
 		if toInt(portSpec["port"]) == port && toInt(portSpec["targetPort"]) == targetPort {
+			return true
+		}
+	}
+
+	return false
+}
+
+func serviceHasNodePort(item manifest, port, targetPort, nodePort int) bool {
+	ports := nestedSlice(specMap(item), "ports")
+	for _, raw := range ports {
+		portSpec := toMap(raw)
+		if toInt(portSpec["port"]) == port &&
+			toInt(portSpec["targetPort"]) == targetPort &&
+			toInt(portSpec["nodePort"]) == nodePort {
 			return true
 		}
 	}
@@ -375,6 +409,39 @@ func containerEnvRef(container map[string]any, refType, refName string) bool {
 	for _, raw := range envList {
 		envVar := toMap(raw)
 		if nestedString(envVar, "valueFrom", refType, "name") == refName {
+			return true
+		}
+	}
+
+	return false
+}
+
+func manifestHasLabel(item manifest, key, expected string) bool {
+	return nestedString(map[string]any(item), "metadata", "labels", key) == expected ||
+		nestedString(specMap(item), "template", "metadata", "labels", key) == expected
+}
+
+func manifestHasAnnotation(item manifest, key, expected string) bool {
+	return nestedString(map[string]any(item), "metadata", "annotations", key) == expected ||
+		nestedString(specMap(item), "template", "metadata", "annotations", key) == expected
+}
+
+func hpaTargetsDeployment(item manifest, deploymentName string) bool {
+	return nestedString(specMap(item), "scaleTargetRef", "kind") == "Deployment" &&
+		nestedString(specMap(item), "scaleTargetRef", "name") == deploymentName
+}
+
+func hpaHasCPUUtilizationTarget(item manifest, expected int) bool {
+	metrics := nestedSlice(specMap(item), "metrics")
+	for _, raw := range metrics {
+		metric := toMap(raw)
+		if nestedString(metric, "type") != "Resource" {
+			continue
+		}
+		if nestedString(metric, "resource", "name") != "cpu" {
+			continue
+		}
+		if nestedInt(metric, "resource", "target", "averageUtilization") == expected {
 			return true
 		}
 	}

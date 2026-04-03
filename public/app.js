@@ -4,291 +4,323 @@ const DEFAULT_EDITOR_CALLOUT =
 
 const TERMINAL_GUIDES = {
   "lab-1": {
-    runtimeTaskIndexes: [0],
     intro:
-      "Neste runtime o namespace do aluno ja foi provisionado pela plataforma. Use o terminal para operar dentro desse escopo e use o manifesto abaixo para treinar a modelagem declarativa do exercicio.",
+      "A Unidade I nao roda no cluster da plataforma. Execute os passos abaixo no seu computador com WSL, Docker, Kind e kubectl, e use o editor apenas para consolidar o manifesto final do Pod.",
     steps: [
       {
-        title: "Confirmar o escopo do lab",
-        command: "kubectl get pods",
-        note: "Confere se voce ja caiu no namespace isolado do aluno e quais recursos existem no inicio.",
+        title: "Validar o ambiente Linux",
+        command: "uname -a",
+        note: "Confirma que o shell aberto no computador do aluno esta em ambiente Linux/WSL.",
         taskIndexes: [0],
+        runMode: "local",
       },
       {
-        title: "Subir o primeiro pod",
-        command: "kubectl run nginx-lab --image=nginx:stable --restart=Never",
-        note: "Cria o Pod simples do encontro diretamente no namespace atual do lab.",
+        title: "Conferir Docker no WSL",
+        command: "docker --version\ndocker ps",
+        note: "Valida se o Docker Desktop esta integrado ao WSL e respondendo corretamente.",
+        taskIndexes: [0],
+        runMode: "local",
+      },
+      {
+        title: "Instalar e verificar o Kind",
+        command: "curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64\nchmod +x ./kind\nsudo mv ./kind /usr/local/bin/kind\nkind --version",
+        note: "Segue o fluxo da pratica para instalar o Kind no computador do aluno.",
+        taskIndexes: [0],
+        runMode: "local",
+      },
+      {
+        title: "Instalar e verificar o kubectl",
+        command:
+          "curl -LO \"https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\"\nchmod +x kubectl\nsudo mv kubectl /usr/local/bin/\nkubectl version --client",
+        note: "Instala o cliente kubectl usado em toda a trilha pratica.",
+        taskIndexes: [0],
+        runMode: "local",
+      },
+      {
+        title: "Criar o cluster local",
+        command: "kind create cluster --name dev-cluster",
+        note: "Provisiona o cluster Kind usado nesta unidade introdutoria.",
         taskIndexes: [1],
+        runMode: "local",
       },
       {
-        title: "Acompanhar a inicializacao",
-        command: "kubectl get pods -w",
-        note: "Observe o Pod ate ficar Running. Use Ctrl+C para encerrar o watch ou avance para o proximo passo guiado que a plataforma interrompe o acompanhamento automaticamente.",
-        longRunning: true,
-        taskIndexes: [1],
+        title: "Inspecionar nodes e pods do sistema",
+        command: "kubectl get nodes\nkubectl get pods -A",
+        note: "Confere o node Ready e os componentes nativos do Kubernetes no cluster local.",
+        taskIndexes: [1, 2],
+        runMode: "local",
       },
       {
-        title: "Inspecionar eventos e condicoes",
-        command: "kubectl describe pod nginx-lab",
-        note: "Leia imagem, eventos e condicoes do Pod antes de seguir.",
-        taskIndexes: [2],
+        title: "Criar e inspecionar o primeiro Pod",
+        command: "kubectl run nginx --image=nginx\nkubectl get pods\nkubectl describe pod nginx\nkubectl logs nginx",
+        note: "Executa o fluxo imperativo da pratica antes de consolidar o YAML.",
+        taskIndexes: [3],
+        runMode: "local",
+      },
+      {
+        title: "Aplicar o manifesto final do Pod",
+        command: "cat > nginx.yaml <<'EOF'\napiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-yaml\nspec:\n  containers:\n    - name: nginx\n      image: nginx\n      ports:\n        - containerPort: 80\nEOF\nkubectl apply -f nginx.yaml",
+        note: "Fecha a pratica com o manifesto declarativo que tambem sera consolidado no editor da plataforma.",
+        taskIndexes: [4],
+        runMode: "local",
+      },
+      {
+        title: "Limpar o ambiente local",
+        command: "kubectl delete pod nginx\nkubectl delete -f nginx.yaml\nkind delete cluster --name dev-cluster",
+        note: "Etapa opcional de limpeza ao final da atividade no computador do aluno.",
+        runMode: "local",
       },
     ],
   },
   "lab-2": {
+    runtimeTaskIndexes: [0],
     intro:
-      "Este encontro ja foca em rollout, replicas e Service. O terminal deve ser o caminho principal para subir e validar o workload antes de consolidar o YAML no editor.",
+      "A Unidade II usa o terminal real como trilha principal para subir o workload gerenciado, expor a aplicacao e revisar probes antes de consolidar o manifesto final.",
     steps: [
       {
-        title: "Criar o deployment replicado",
-        command: "kubectl create deployment api-demo --image=nginx:stable --replicas=3",
-        note: "Cria o workload base com tres replicas no namespace atual.",
-        taskIndexes: [0],
-      },
-      {
-        title: "Expor a aplicacao internamente",
-        command: "kubectl expose deployment api-demo --name=api-demo-svc --port=80 --target-port=80",
-        note: "Gera o Service interno que aponta para o Deployment.",
+        title: "Aplicar o Deployment base",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app-web\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: web\n  template:\n    metadata:\n      labels:\n        app: web\n    spec:\n      containers:\n        - name: nginx\n          image: nginx:latest\n          ports:\n            - containerPort: 80\nEOF",
+        note: "Cria a aplicacao gerenciada por Deployment com 3 replicas.",
         taskIndexes: [1],
       },
       {
-        title: "Acompanhar o rollout",
-        command: "kubectl rollout status deploy/api-demo",
-        note: "Verifica se o rollout das replicas terminou sem erro.",
+        title: "Criar o Service interno",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: v1\nkind: Service\nmetadata:\n  name: web-service\nspec:\n  type: ClusterIP\n  selector:\n    app: web\n  ports:\n    - port: 80\n      targetPort: 80\nEOF",
+        note: "Entrega a conectividade interna entre os Pods da aplicacao.",
+        taskIndexes: [1],
+      },
+      {
+        title: "Publicar o NodePort da pratica",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: v1\nkind: Service\nmetadata:\n  name: web-nodeport\nspec:\n  type: NodePort\n  selector:\n    app: web\n  ports:\n    - port: 80\n      targetPort: 80\n      nodePort: 30080\nEOF",
+        note: "Exponha a aplicacao com NodePort 30080 para o contexto de laboratorio.",
         taskIndexes: [2],
       },
       {
-        title: "Revisar recursos publicados",
-        command: "kubectl get deploy,svc,pods",
-        note: "Confirme replicas, Service e Pods antes de escrever a entrega declarativa.",
-        taskIndexes: [2],
+        title: "Atualizar o Deployment com probes",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app-web\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: web\n  template:\n    metadata:\n      labels:\n        app: web\n    spec:\n      containers:\n        - name: nginx\n          image: nginx:latest\n          ports:\n            - containerPort: 80\n          readinessProbe:\n            httpGet:\n              path: /\n              port: 80\n            initialDelaySeconds: 5\n            periodSeconds: 10\n          livenessProbe:\n            httpGet:\n              path: /\n              port: 80\n            initialDelaySeconds: 5\n            periodSeconds: 10\nEOF",
+        note: "Adiciona readiness e liveness ao container principal do workload.",
+        taskIndexes: [3],
+      },
+      {
+        title: "Inspecionar rollout e recursos",
+        command: "kubectl rollout status deployment/app-web\nkubectl get deployments,pods,svc",
+        note: "Revisa o estado final antes de consolidar o YAML no editor.",
+        taskIndexes: [4],
       },
     ],
   },
   "lab-3": {
+    runtimeTaskIndexes: [0],
     intro:
-      "Neste modulo voce continua usando o terminal como trilha de operacao. O Ingress e um bom exemplo de recurso que pode nascer via apply pontual no shell e depois ser consolidado no manifesto final.",
+      "No runtime da Unidade III o namespace do aluno ja existe. Use-o como equivalente operacional do namespace `laboratorio` e foque em configuracao externa, organizacao e service discovery.",
     steps: [
       {
-        title: "Criar o frontend base",
-        command: "kubectl create deployment webapp --image=nginx:stable --replicas=2",
-        note: "Sobe a aplicacao web com duas replicas para comecar o fluxo de entrega HTTP.",
-      },
-      {
-        title: "Expor o frontend com Service",
-        command: "kubectl expose deployment webapp --name=webapp-service --port=80 --target-port=80",
-        note: "Cria o backend do trafego interno que sera usado pelo Ingress.",
-        taskIndexes: [0],
-      },
-      {
-        title: "Aplicar a regra de Ingress",
-        command: `cat <<'EOF' | kubectl apply -f -
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: webapp-ingress
-spec:
-  rules:
-    - host: kubeclass.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: webapp-service
-                port:
-                  number: 80
-EOF`,
-        note: "Publica a rota HTTP do exercicio direto do terminal para testar rapidamente.",
+        title: "Criar o ConfigMap da aplicacao",
+        command:
+          "kubectl create configmap app-config --from-literal=APP_MODE=producao --from-literal=APP_PORT=80 --from-literal=APP_COLOR=blue",
+        note: "Externaliza as configuracoes do workload sem alterar a imagem.",
         taskIndexes: [1],
       },
       {
-        title: "Conferir Service e Ingress",
-        command: "kubectl get ingress,svc,pods",
-        note: "Valide o ponto unico de entrada e os backends do frontend.",
-        taskIndexes: [2],
+        title: "Criar o Secret com credenciais",
+        command:
+          "kubectl create secret generic app-secret --from-literal=APP_USER=admin --from-literal=APP_PASSWORD=123456",
+        note: "Armazena os dados sensiveis da aplicacao em recurso dedicado.",
+        taskIndexes: [1],
+      },
+      {
+        title: "Aplicar o Deployment organizado",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app-nginx\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: nginx\n  template:\n    metadata:\n      labels:\n        app: nginx\n        env: laboratorio\n      annotations:\n        owner: \"time-devops\"\n        version: \"1.0\"\n    spec:\n      containers:\n        - name: nginx\n          image: nginx:latest\n          ports:\n            - containerPort: 80\n          env:\n            - name: APP_MODE\n              valueFrom:\n                configMapKeyRef:\n                  name: app-config\n                  key: APP_MODE\n            - name: APP_USER\n              valueFrom:\n                secretKeyRef:\n                  name: app-secret\n                  key: APP_USER\nEOF",
+        note: "Entrega o workload com labels, annotations e consumo de ConfigMap e Secret.",
+        taskIndexes: [2, 3],
+      },
+      {
+        title: "Expor a aplicacao internamente",
+        command: "kubectl expose deployment app-nginx --name=nginx-service --port=80 --target-port=80 --type=ClusterIP",
+        note: "Cria o Service interno que fecha a descoberta da aplicacao dentro do namespace do aluno.",
+        taskIndexes: [4],
+      },
+      {
+        title: "Inspecionar metadados e recursos",
+        command: "kubectl get pods --show-labels\nkubectl describe deployment app-nginx\nkubectl get svc",
+        note: "Revisa labels, annotations, env vars e a exposicao final do workload.",
+        taskIndexes: [4],
       },
     ],
   },
   "lab-4": {
     intro:
-      "Aqui o terminal passa a ser um posto de operacao. Primeiro voce injeta configuracao e segredo, depois aplica o Deployment com probes e limites.",
+      "A Unidade IV mistura modelagem declarativa e operacao real. No runtime do aluno foque em PVC, StatefulSet, Job e CronJob; o PV entra como referencia declarativa porque depende de privilegios de cluster.",
     steps: [
       {
-        title: "Criar o ConfigMap",
-        command: "kubectl create configmap app-config --from-literal=APP_MODE=dev",
-        note: "Desacopla configuracao da imagem do container.",
+        title: "Registrar o PV da unidade",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: v1\nkind: PersistentVolume\nmetadata:\n  name: pv-dados\nspec:\n  capacity:\n    storage: 5Gi\n  accessModes:\n    - ReadWriteOnce\n  hostPath:\n    path: /mnt/dados\nEOF",
+        note: "Use este manifesto como referencia declarativa da unidade. No runtime do aluno, prefira registra-lo no diario e no editor.",
+        taskIndexes: [0],
+        runMode: "journal",
+      },
+      {
+        title: "Aplicar o PVC namespaced",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: pvc-dados\nspec:\n  accessModes:\n    - ReadWriteOnce\n  resources:\n    requests:\n      storage: 5Gi\nEOF",
+        note: "Cria o claim da unidade dentro do namespace isolado do aluno.",
         taskIndexes: [0],
       },
       {
-        title: "Criar o Secret",
-        command:
-          "kubectl create secret generic app-secret --from-literal=API_KEY=trocar-antes-de-produzir",
-        note: "Materializa o segredo usado pela API do encontro.",
-        taskIndexes: [0],
+        title: "Aplicar o StatefulSet do banco",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: banco\nspec:\n  serviceName: banco\n  replicas: 1\n  selector:\n    matchLabels:\n      app: banco\n  template:\n    metadata:\n      labels:\n        app: banco\n    spec:\n      containers:\n        - name: mysql\n          image: mysql:5.7\n          env:\n            - name: MYSQL_ROOT_PASSWORD\n              value: \"123456\"\n          volumeMounts:\n            - name: dados\n              mountPath: /var/lib/mysql\n  volumeClaimTemplates:\n    - metadata:\n        name: dados\n      spec:\n        accessModes: [\"ReadWriteOnce\"]\n        resources:\n          requests:\n            storage: 5Gi\nEOF",
+        note: "Entrega o componente stateful principal com persistencia declarativa.",
+        taskIndexes: [1],
       },
       {
-        title: "Aplicar o deployment operacional",
-        command: `cat <<'EOF' | kubectl apply -f -
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: config-api
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: config-api
-  template:
-    metadata:
-      labels:
-        app: config-api
-    spec:
-      containers:
-        - name: api
-          image: nginx:stable
-          ports:
-            - containerPort: 80
-          env:
-            - name: APP_MODE
-              valueFrom:
-                configMapKeyRef:
-                  name: app-config
-                  key: APP_MODE
-            - name: API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: app-secret
-                  key: API_KEY
-          readinessProbe:
-            httpGet:
-              path: /
-              port: 80
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 80
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "250m"
-              memory: "256Mi"
-EOF`,
-        note: "Entrega o workload com probes e recursos minimos dentro do namespace do aluno.",
-        taskIndexes: [1, 2],
-      },
-      {
-        title: "Inspecionar a configuracao final",
-        command: "kubectl describe deploy config-api",
-        note: "Revise env vars, probes e limites diretamente no resultado do cluster.",
+        title: "Executar o Job de processamento",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: batch/v1\nkind: Job\nmetadata:\n  name: job-processamento\nspec:\n  template:\n    spec:\n      restartPolicy: Never\n      containers:\n        - name: processador\n          image: python:3.11\n          command: [\"python\", \"-c\", \"print('Processando dados...')\"]\nEOF",
+        note: "Dispara o processamento pontual tratado na pratica da unidade.",
         taskIndexes: [2],
+      },
+      {
+        title: "Agendar o CronJob de backup",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: batch/v1\nkind: CronJob\nmetadata:\n  name: cron-backup\nspec:\n  schedule: \"*/1 * * * *\"\n  jobTemplate:\n    spec:\n      template:\n        spec:\n          restartPolicy: OnFailure\n          containers:\n            - name: backup\n              image: alpine\n              command: [\"sh\", \"-c\", \"echo Backup executado\"]\nEOF",
+        note: "Fecha a automacao agendada prevista para a camada stateful.",
+        taskIndexes: [3],
+      },
+      {
+        title: "Inspecionar a camada persistente",
+        command: "kubectl get pvc,statefulset,pods,jobs,cronjobs",
+        note: "Revisa persistencia, workloads batch e recursos gerados no namespace do aluno.",
+        taskIndexes: [4],
       },
     ],
   },
   "lab-5": {
     intro:
-      "No modulo stateful, o terminal vira o painel principal para subir objetos encadeados: headless Service, StatefulSet com PVC e Job de bootstrap.",
+      "A Unidade V combina operacao real no runtime com registro guiado de etapas mais avancadas. Deployment, Service, HPA, rolling update e rollback podem ser praticados no cluster; o fluxo de Helm pode ser registrado quando o runtime nao tiver Helm instalado.",
     steps: [
       {
-        title: "Publicar o headless Service",
-        command: `cat <<'EOF' | kubectl apply -f -
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis-headless
-spec:
-  clusterIP: None
-  selector:
-    app: redis-cache
-  ports:
-    - port: 6379
-      targetPort: 6379
-EOF`,
-        note: "Entrega a descoberta estavel para o StatefulSet.",
-        taskIndexes: [1],
-      },
-      {
-        title: "Aplicar o StatefulSet",
-        command: `cat <<'EOF' | kubectl apply -f -
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: redis-cache
-spec:
-  serviceName: redis-headless
-  replicas: 1
-  selector:
-    matchLabels:
-      app: redis-cache
-  template:
-    metadata:
-      labels:
-        app: redis-cache
-    spec:
-      containers:
-        - name: redis
-          image: redis:7
-          ports:
-            - containerPort: 6379
-          volumeMounts:
-            - name: data
-              mountPath: /data
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 1Gi
-EOF`,
-        note: "Cria o componente stateful com volume persistente do encontro.",
+        title: "Aplicar o Deployment base",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: webapp\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: webapp\n  template:\n    metadata:\n      labels:\n        app: webapp\n    spec:\n      containers:\n        - name: nginx\n          image: nginx:latest\n          ports:\n            - containerPort: 80\nEOF",
+        note: "Cria a aplicacao inicial com 2 replicas para a etapa de operacao.",
         taskIndexes: [0],
       },
       {
-        title: "Executar o Job de bootstrap",
-        command: `cat <<'EOF' | kubectl apply -f -
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: seed-cache
-spec:
-  template:
-    spec:
-      restartPolicy: Never
-      containers:
-        - name: seed
-          image: busybox:1.36
-          command: ["sh", "-c", "echo cache preparado"]
-EOF`,
-        note: "Dispara a tarefa pontual que fecha o setup do ambiente.",
+        title: "Expor a aplicacao internamente",
+        command: "kubectl expose deployment webapp --name=webapp --port=80 --target-port=80 --type=ClusterIP",
+        note: "Entrega o Service interno usado pelo autoscaler e pelos testes da unidade.",
+        taskIndexes: [0],
+      },
+      {
+        title: "Aplicar o HPA da unidade",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: webapp\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n    kind: Deployment\n    name: webapp\n  minReplicas: 2\n  maxReplicas: 10\n  metrics:\n    - type: Resource\n      resource:\n        name: cpu\n        target:\n          type: Utilization\n          averageUtilization: 50\nEOF",
+        note: "Configura o autoscaling da unidade com alvo de CPU em 50%.",
+        taskIndexes: [1],
+      },
+      {
+        title: "Executar o rolling update",
+        command: "kubectl set image deployment/webapp nginx=nginx:1.25\nkubectl rollout status deployment/webapp",
+        note: "Atualiza a imagem do Deployment e acompanha o rollout controlado.",
         taskIndexes: [2],
       },
       {
-        title: "Inspecionar camada persistente",
-        command: "kubectl get statefulset,pvc,job,pods",
-        note: "Confira PVC, identidade estavel e Job de preparacao.",
-        taskIndexes: [2],
+        title: "Executar rollback e revisar historico",
+        command: "kubectl rollout undo deployment/webapp\nkubectl rollout history deployment/webapp",
+        note: "Volta a versao anterior e consulta o historico de revisoes do Deployment.",
+        taskIndexes: [3],
+      },
+      {
+        title: "Registrar o fluxo equivalente com Helm",
+        command: "helm version\nhelm repo add bitnami https://charts.bitnami.com/bitnami\nhelm repo update\nhelm install meu-nginx bitnami/nginx\nhelm upgrade meu-nginx bitnami/nginx --set replicaCount=3\nhelm rollback meu-nginx 1",
+        note: "Use este bloco como roteiro de referencia para a parte da unidade ligada a empacotamento, upgrade e rollback com Helm.",
+        taskIndexes: [4],
+        runMode: "journal",
       },
     ],
   },
 };
 
+const WORKFLOW_GUIDES = {
+  "lab-1": [
+    {
+      title: "Executar localmente no computador do aluno",
+      note: "Use WSL, Docker, Kind e kubectl fora da plataforma para montar o cluster da unidade.",
+    },
+    {
+      title: "Registrar o percurso no diario do lab",
+      note: "Marque os passos locais concluidos e mantenha o roteiro como checklist da pratica.",
+    },
+    {
+      title: "Consolidar apenas o manifesto final",
+      note: "Use o editor para revisar o Pod `nginx-yaml`, que representa a parte declarativa da atividade.",
+    },
+  ],
+  "lab-2": [
+    {
+      title: "Subir a aplicacao pelo terminal real",
+      note: "Use o runtime para criar Deployment, Services e revisar rollout no cluster do aluno.",
+    },
+    {
+      title: "Reescrever a solucao em YAML",
+      note: "Depois de operar a aplicacao, consolide o manifesto com NodePort e probes no editor.",
+    },
+    {
+      title: "Fechar com validacao declarativa",
+      note: "Garanta que a entrega final reflita o estado esperado da unidade, nao apenas o experimento momentaneo no shell.",
+    },
+  ],
+  "lab-3": [
+    {
+      title: "Usar o namespace do runtime como laboratorio",
+      note: "No shell do aluno, trate o namespace provisionado como equivalente operacional do namespace `laboratorio`.",
+    },
+    {
+      title: "Materializar configuracao e metadados",
+      note: "ConfigMap, Secret, labels, annotations e Service devem aparecer tanto no terminal quanto no manifesto final.",
+    },
+    {
+      title: "Consolidar a organizacao declarativa",
+      note: "O YAML final precisa fechar nomes, referencias e metadados coerentes com a unidade.",
+    },
+  ],
+  "lab-4": [
+    {
+      title: "Separar o que e cluster-scope do que e namespaced",
+      note: "Modele PV no manifesto e execute no runtime principalmente PVC, StatefulSet, Job e CronJob.",
+    },
+    {
+      title: "Usar o terminal para operacao stateful",
+      note: "O runtime serve para observar a camada stateful e os workloads batch dentro do namespace do aluno.",
+    },
+    {
+      title: "Fechar o desenho completo no editor",
+      note: "A validacao final considera o conjunto completo da unidade, incluindo recursos que nao dependem apenas do shell do aluno.",
+    },
+  ],
+  "lab-5": [
+    {
+      title: "Operar escalabilidade e rollout no runtime",
+      note: "Deployment, Service, HPA, rolling update e rollback devem ser praticados no terminal do aluno.",
+    },
+    {
+      title: "Registrar a extensao com Helm",
+      note: "Use o diario para guardar o fluxo de install, upgrade e rollback com Helm quando o runtime nao tiver a ferramenta.",
+    },
+    {
+      title: "Consolidar o alvo declarativo da unidade",
+      note: "A entrega final valida Deployment, Service e HPA coerentes com o comportamento esperado da aplicacao.",
+    },
+  ],
+};
+
 const DEFAULT_WORKFLOW = [
   {
-    title: "Operar primeiro no terminal",
-    note: "Abra o runtime do aluno, execute o roteiro guiado e use o cluster como ambiente principal da pratica.",
+    title: "Executar o roteiro da unidade",
+    note: "Siga os passos guiados usando runtime real, execucao local ou registro manual conforme a proposta da pratica.",
   },
   {
     title: "Consolidar no manifesto",
-    note: "Depois de validar o entendimento operacional, registre a versao declarativa no editor YAML.",
+    note: "Registre no editor a versao declarativa final que representa a entrega da unidade.",
   },
   {
     title: "Fechar com validacao e evidencia",
-    note: "Use a validacao automatica para gerar checkpoint e salvar a submissao no servidor.",
+    note: "Use a validacao automatica e o diario do lab para fixar evidencias da pratica.",
   },
 ];
 
@@ -297,50 +329,7 @@ const TERMINAL_PROMPT_PATTERN = /(?:^|\r?\n)[^\r\n]*[$#] $/m;
 const TERMINAL_FAILURE_PATTERN =
   /\b(error:|forbidden|not found|unable to|failed\b|panic:|invalid\b|timeout\b)\b/i;
 const MAX_SUBMISSIONS_PER_LAB = 3;
-const MANUAL_PROGRESS_RULES = {
-  "lab-1": [
-    {
-      taskIndexes: [0],
-      patterns: [
-        /^kubectl\s+get\s+pods(?:\s+-n\s+team-dev)?$/i,
-        /^kubectl\s+create\s+namespace\s+team-dev$/i,
-      ],
-    },
-    {
-      taskIndexes: [1],
-      patterns: [/^kubectl\s+run\s+nginx-lab\b.*\b--image=nginx(?::[^\s]+)?\b/i],
-    },
-    {
-      taskIndexes: [2],
-      patterns: [
-        /^kubectl\s+get\s+pods(?:\s+-n\s+team-dev)?\s+-w$/i,
-        /^kubectl\s+describe\s+pod\s+nginx-lab(?:\s+-n\s+team-dev)?$/i,
-        /^kubectl\s+delete\s+pod\s+nginx-lab(?:\s+-n\s+team-dev)?$/i,
-      ],
-    },
-  ],
-  "lab-2": [
-    {
-      taskIndexes: [0],
-      patterns: [
-        /^kubectl\s+create\s+deployment\s+api-demo\b.*\b--image=nginx(?::[^\s]+)?\b.*\b--replicas=3\b/i,
-      ],
-    },
-    {
-      taskIndexes: [1],
-      patterns: [
-        /^kubectl\s+expose\s+deployment\s+api-demo\b.*\b--name=api-demo-svc\b.*\b--port=80\b.*\b--target-port=80\b/i,
-      ],
-    },
-    {
-      taskIndexes: [2],
-      patterns: [
-        /^kubectl\s+rollout\s+status\s+deploy(?:ment)?\/api-demo$/i,
-        /^kubectl\s+get\s+deploy,svc,pods$/i,
-      ],
-    },
-  ],
-};
+const MANUAL_PROGRESS_RULES = {};
 
 const state = {
   course: null,
@@ -461,20 +450,20 @@ const STUDENT_ROUTE_CONFIG = {
   overview: {
     path: "/app/overview",
     eyebrow: "Visão geral",
-    title: "Mapa do encontro e preparação teórica",
-    copy: "Abra uma visão limpa da sessão atual, com foco pedagógico, entregáveis e checklist da aula.",
+    title: "Mapa da unidade e preparação teorica",
+    copy: "Abra uma visao limpa da sessao atual, com foco pedagogico, entregaveis e checklist da unidade.",
   },
   practice: {
     path: "/app/practice",
     eyebrow: "Prática guiada",
-    title: "Terminal real e roteiro operacional",
-    copy: "Use o cluster do aluno como ambiente principal da prática e siga o roteiro guiado passo a passo.",
+    title: "Execucao guiada da unidade",
+    copy: "Siga o roteiro da unidade usando runtime real, execucao local ou registro manual, conforme a proposta da pratica.",
   },
   workspace: {
     path: "/app/workspace",
     eyebrow: "Workspace",
-    title: "Entrega declarativa e validação",
-    copy: "Consolide o aprendizado no manifesto YAML, valide critérios e registre a evidência da aula.",
+    title: "Entrega declarativa e validacao",
+    copy: "Consolide o aprendizado no manifesto YAML, valide criterios e registre a evidencia da unidade.",
   },
 };
 
@@ -611,6 +600,38 @@ const getActiveRuntimeSession = () => {
   return currentSession && currentSession.labId === lab.id ? currentSession : null;
 };
 
+const getLabExecutionMode = (lab = getActiveLab()) => lab.executionMode || "cluster";
+
+const getStepRunMode = (step, lab = getActiveLab()) =>
+  step?.runMode || (getLabExecutionMode(lab) === "local" ? "local" : "runtime");
+
+const shouldSendStepToRuntime = (step, lab = getActiveLab()) =>
+  getStepRunMode(step, lab) === "runtime";
+
+const getCommandActionLabel = (step, lab = getActiveLab()) => {
+  const runMode = getStepRunMode(step, lab);
+  if (runMode === "local") {
+    return "Registrar execucao";
+  }
+  if (runMode === "journal") {
+    return "Registrar passo";
+  }
+
+  return getActiveRuntimeSession() && state.runtime.connected
+    ? "Enviar ao terminal"
+    : "Registrar passo";
+};
+
+const getRuntimeButtonLabel = (lab = getActiveLab()) => {
+  if (getLabExecutionMode(lab) === "local") {
+    return "Pratica local";
+  }
+
+  return state.runtime.connected && getActiveRuntimeSession()
+    ? "Reconectar terminal"
+    : "Conectar terminal";
+};
+
 const getTerminalGuide = () => {
   const lab = getActiveLab();
   const guide = TERMINAL_GUIDES[lab.id];
@@ -630,7 +651,7 @@ const getTerminalGuide = () => {
   };
 };
 
-const getWorkflowGuide = () => DEFAULT_WORKFLOW;
+const getWorkflowGuide = () => WORKFLOW_GUIDES[getActiveLab().id] || DEFAULT_WORKFLOW;
 
 const getTaskKey = (sessionId, taskIndex) => `${sessionId}:${taskIndex}`;
 
@@ -1008,7 +1029,7 @@ const renderPracticeTasks = (session) => {
   elements.practiceTasks.innerHTML = `
     <p class="eyebrow">Pratica da aula</p>
     <h3>Checklist de execucao</h3>
-    <p>As tarefas abaixo ajudam a misturar teoria e pratica na ordem do encontro.</p>
+    <p>As tarefas abaixo ajudam a misturar teoria e pratica na ordem da unidade.</p>
     <div class="task-list">
       ${tasks}
     </div>
@@ -1031,7 +1052,7 @@ const describeValidationCheck = (item) => {
     return "Nenhuma imagem foi detectada no container principal. Use `image: nginx:stable` ou outra variante iniciando com `nginx`.";
   }
 
-  return `Imagem atual detectada: \`${image}\`. Para este encontro a validacao aceita imagens iniciando com \`nginx\`, como \`nginx\`, \`nginx:stable\` ou \`nginx:latest\`. Se aparecer \`ngnix\`, e typo e precisa corrigir.`;
+  return `Imagem atual detectada: \`${image}\`. Para esta unidade a validacao aceita imagens iniciando com \`nginx\`, como \`nginx\`, \`nginx:stable\` ou \`nginx:latest\`. Se aparecer \`ngnix\`, e typo e precisa corrigir.`;
 };
 
 const renderValidation = (validation) => {
@@ -1083,10 +1104,12 @@ const syncValidateButtonState = (lab = getActiveLab()) => {
 const renderCommands = () => {
   const lab = getActiveLab();
   const guide = getTerminalGuide();
-  const activeRuntimeSession = getActiveRuntimeSession();
+  const defaultLogMessage =
+    getLabExecutionMode(lab) === "local"
+      ? "Nenhum passo registrado ainda. Use o roteiro ao lado para documentar a execucao local da unidade.\n"
+      : "Nenhum passo registrado ainda. Use o roteiro ao lado para guiar a execucao do laboratorio.\n";
   const log =
-    state.terminalLogs[lab.id] ||
-    "Nenhum passo registrado ainda. Use o roteiro ao lado para guiar a execucao do laboratorio.\n";
+    state.terminalLogs[lab.id] || defaultLogMessage;
 
   elements.runbookIntro.textContent = guide.intro;
 
@@ -1101,7 +1124,7 @@ const renderCommands = () => {
               data-command-index="${index}"
               type="button"
             >
-              ${activeRuntimeSession && state.runtime.connected ? "Enviar ao terminal" : "Registrar passo"}
+              ${getCommandActionLabel(item, lab)}
             </button>
           </div>
           <h4>${escapeHtml(item.title)}</h4>
@@ -1174,9 +1197,30 @@ const renderRuntimePanel = () => {
   const lab = getActiveLab();
   const activeSession = getActiveRuntimeSession();
 
-  elements.openRuntimeButton.disabled = !state.student?.id;
-  elements.openRuntimeButton.textContent =
-    state.runtime.connected && activeSession ? "Reconectar terminal" : "Conectar terminal";
+  elements.openRuntimeButton.disabled =
+    getLabExecutionMode(lab) === "local" || !state.student?.id;
+  elements.openRuntimeButton.textContent = getRuntimeButtonLabel(lab);
+
+  if (getLabExecutionMode(lab) === "local") {
+    setRuntimeStatus(
+      "Esta unidade e executada no computador do aluno. Use o roteiro ao lado como guia local e o editor para consolidar o manifesto final.",
+      "info",
+    );
+    elements.runtimeMeta.innerHTML = `
+      <article class="runtime-chip">
+        <strong>Modo da pratica</strong>
+        <span>Execucao local</span>
+      </article>
+      <article class="runtime-chip">
+        <strong>Ambiente</strong>
+        <span>WSL + Docker + Kind + kubectl</span>
+      </article>
+    `;
+    elements.runtimeContext.textContent =
+      "Nao ha shell provisionada para esta unidade na plataforma. Registre os passos locais no diario do lab e consolide o YAML final no editor.";
+    elements.terminalModeLabel.textContent = "Execucao local";
+    return;
+  }
 
   if (!state.student?.id) {
     setRuntimeStatus(
@@ -1236,7 +1280,8 @@ const renderRuntimePanel = () => {
 const renderHeader = () => {
   const progress = calculateProgress();
   const isConnected = Boolean(state.student?.id);
-  const formatText = `${state.course.format.totalMeetings} encontros de ${state.course.format.durationPerMeeting}`;
+  const itemLabelPlural = state.course.format.itemLabelPlural || "encontros";
+  const formatText = `${state.course.format.totalMeetings} ${itemLabelPlural} de ${state.course.format.durationPerMeeting}`;
 
   elements.heroDescription.textContent = state.course.description;
   elements.gateDescription.textContent = state.course.description;
@@ -1276,13 +1321,13 @@ const renderSessionDetails = () => {
   const hasDraft = Boolean((state.drafts[lab.id] || "").trim());
   const updatedAt = state.workspaceUpdatedAt[lab.id];
 
-  elements.sessionOrder.textContent = `Encontro ${session.order}`;
+  elements.sessionOrder.textContent = session.label || `Unidade ${session.order}`;
   elements.sessionTitle.textContent = session.title;
   elements.sessionDuration.textContent = session.duration;
 
   renderListCard(
     elements.sessionFocus,
-    "Foco do encontro",
+    "Foco da unidade",
     "Objetivo pedagogico",
     session.focus,
     session.deliverables,
@@ -1292,7 +1337,7 @@ const renderSessionDetails = () => {
     elements.sessionDeliverables,
     "Entrega esperada",
     "O que o aluno precisa sair sabendo",
-    "Cada encontro termina com artefatos concretos para consolidar a pratica.",
+    "Cada unidade termina com artefatos concretos para consolidar a pratica.",
     session.deliverables,
   );
 
@@ -1300,7 +1345,7 @@ const renderSessionDetails = () => {
     elements.theoryTopics,
     "Bloco teorico",
     "2h de teoria orientada",
-    "Conceitos em ordem cronologica para preparar a parte pratica.",
+    "Conceitos em ordem cronologica para preparar a parte pratica da unidade.",
     session.theoryTopics,
   );
 
@@ -1326,7 +1371,10 @@ const renderSessionDetails = () => {
   );
 
   elements.editor.value = state.drafts[lab.id] || lab.starter;
-  elements.editorCallout.textContent = `${DEFAULT_EDITOR_CALLOUT} Estrutura esperada: ${lab.title}.`;
+  elements.editorCallout.textContent =
+    getLabExecutionMode(lab) === "local"
+      ? `Esta unidade roda fora da plataforma. Use o editor para consolidar o manifesto final esperado: ${lab.title}.`
+      : `${DEFAULT_EDITOR_CALLOUT} Estrutura esperada: ${lab.title}.`;
   syncValidateButtonState(lab);
   renderValidation(validation);
   renderCommands();
@@ -1335,7 +1383,7 @@ const renderSessionDetails = () => {
 
   if (validation?.allPassed && isSessionPracticeComplete(session)) {
     setEditorStatus(
-      "Encontro concluido: pratica guiada registrada e manifesto validado com sucesso.",
+      "Unidade concluida: pratica guiada registrada e manifesto validado com sucesso.",
       "success",
     );
   } else if (updatedAt) {
@@ -1373,7 +1421,7 @@ const markWorkspaceDirty = (message) => {
 const setActiveSession = (sessionId) => {
   const nextSession = state.course.meetings.find((meeting) => meeting.id === sessionId);
   if (nextSession && state.runtime.session && state.runtime.session.labId !== nextSession.lab.id) {
-    disconnectRuntimeTerminal("Terminal encerrado ao trocar de modulo.");
+    disconnectRuntimeTerminal("Terminal encerrado ao trocar de unidade.");
   }
   state.activeSessionId = sessionId;
   render();
@@ -1513,9 +1561,24 @@ const trackRuntimeCommandOutput = (data) => {
   }
 };
 
+const registerGuideStepProgress = (selected, dirtyMessage) => {
+  const session = getActiveSession();
+  const newlyCompleted = markTaskIndexesForSession(session.id, selected.taskIndexes || []);
+
+  if (newlyCompleted.length > 0) {
+    renderPracticeTasks(session);
+    renderTimeline();
+    renderHeader();
+    renderDashboardStrip();
+  }
+
+  markWorkspaceDirty(dirtyMessage);
+};
+
 const handleCommandAction = async (commandIndex) => {
   const guide = getTerminalGuide();
   const selected = guide.steps[Number(commandIndex)];
+  const runMode = getStepRunMode(selected);
 
   if (!selected) {
     return;
@@ -1523,7 +1586,7 @@ const handleCommandAction = async (commandIndex) => {
 
   const activeRuntimeSession = getActiveRuntimeSession();
 
-  if (activeRuntimeSession && state.runtime.connected) {
+  if (shouldSendStepToRuntime(selected) && activeRuntimeSession && state.runtime.connected) {
     try {
       const willInterruptPrevious = Boolean(state.runtime.activeStreamingCommand);
 
@@ -1552,6 +1615,27 @@ const handleCommandAction = async (commandIndex) => {
         "danger",
       );
     }
+    return;
+  }
+
+  if (!shouldSendStepToRuntime(selected)) {
+    appendTerminalJournal(
+      runMode === "local" ? "Passo local registrado" : "Passo registrado",
+      selected.command,
+      selected.note,
+    );
+    setRuntimeStatus(
+      runMode === "local"
+        ? `Passo registrado para execucao local: ${selected.title}.`
+        : `Passo registrado no diario da unidade: ${selected.title}.`,
+      "success",
+    );
+    registerGuideStepProgress(
+      selected,
+      runMode === "local"
+        ? "Passo local registrado no diario da unidade."
+        : "Passo registrado no diario da unidade.",
+    );
     return;
   }
 
@@ -1773,6 +1857,10 @@ const terminalWebSocketURL = (labId) => {
 };
 
 const openRuntimeTerminal = async () => {
+  if (getLabExecutionMode() === "local") {
+    throw new Error("Esta unidade e executada localmente no computador do aluno e nao abre runtime na plataforma.");
+  }
+
   if (!state.student?.id) {
     throw new Error("Conecte um aluno antes de abrir o terminal real.");
   }
@@ -2179,9 +2267,10 @@ const attachEventListeners = () => {
       showToast(message, "danger");
       renderRuntimePanel();
     } finally {
-      elements.openRuntimeButton.disabled = !state.student?.id;
-      elements.openRuntimeButton.textContent =
-        state.runtime.connected ? "Reconectar terminal" : "Conectar terminal";
+      const lab = getActiveLab();
+      elements.openRuntimeButton.disabled =
+        getLabExecutionMode(lab) === "local" || !state.student?.id;
+      elements.openRuntimeButton.textContent = getRuntimeButtonLabel(lab);
     }
   });
 

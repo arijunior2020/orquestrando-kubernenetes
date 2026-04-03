@@ -19,7 +19,7 @@
           <h1>KubeClass Web Lab</h1>
           <p class="hero-text" id="gate-description">
             Entre com as credenciais já cadastradas pelo instrutor para liberar o
-            terminal real, o workspace declarativo e a trilha completa da disciplina.
+            ambiente de pratica, o workspace declarativo e a trilha completa da disciplina.
           </p>
 
           <div class="hero-actions">
@@ -37,7 +37,7 @@
             </article>
             <article class="hero-stat">
               <span class="hero-label">Objetivo</span>
-              <strong>Prática guiada, terminal real e validação contínua</strong>
+              <strong>Pratica guiada, runtime/local e validacao continua</strong>
             </article>
           </div>
         </div>
@@ -161,7 +161,7 @@
               <h2>Ambiente liberado</h2>
             </div>
             <p class="hero-text compact">
-              O terminal real, o manifesto declarativo e as submissões ficam
+              O ambiente de pratica, o manifesto declarativo e as submissoes ficam
               associados ao aluno conectado. Troque a sessão antes de iniciar
               uma nova prática.
             </p>
@@ -172,7 +172,7 @@
               </article>
               <article class="session-badge">
                 <span class="hero-label">Modo</span>
-                <strong>Terminal real + YAML</strong>
+                <strong>Runtime/local + YAML</strong>
               </article>
             </div>
           </section>
@@ -222,10 +222,10 @@
             <div class="studio-heading">
               <div>
                 <p class="eyebrow">Studio do laboratorio</p>
-                <h2>Terminal real + roteiro guiado</h2>
+                <h2>Execucao guiada da unidade</h2>
               </div>
               <div class="studio-actions">
-                <span class="studio-pill">Pratica no cluster</span>
+                <span class="studio-pill">Runtime, local ou registro</span>
                 <button class="ghost-button button-compact" id="clear-terminal-button" type="button">
                   Limpar tela
                 </button>
@@ -233,9 +233,9 @@
             </div>
 
             <p class="studio-copy">
-              Use o terminal como ambiente principal da aula para executar o lab em um namespace
-              isolado do aluno. O manifesto YAML e a validacao ficam logo abaixo como trilha de
-              entrega declarativa.
+              Algumas unidades usam o runtime do cluster do aluno e outras acontecem no computador
+              do usuario. Use o painel abaixo para seguir o roteiro, registrar a execucao e depois
+              consolidar a entrega declarativa no YAML.
             </p>
 
             <div class="studio-layout">
@@ -243,8 +243,8 @@
                 <div class="terminal-runtime">
                   <div class="runtime-header">
                     <div>
-                      <p class="eyebrow">Runtime real</p>
-                      <h3>Cluster do aluno</h3>
+                      <p class="eyebrow">Ambiente da pratica</p>
+                      <h3>Runtime ou execucao local</h3>
                     </div>
                     <button class="primary-button" id="open-runtime-button" type="button">
                       Abrir terminal real
@@ -258,12 +258,12 @@
                   <div class="runtime-meta" id="runtime-meta"></div>
 
                   <p class="runtime-context" id="runtime-context">
-                    O terminal opera no namespace provisionado pela plataforma. O editor abaixo
-                    continua sendo a trilha declarativa da entrega.
+                    O painel abaixo alterna entre runtime provisionado e orientacao local conforme a
+                    unidade selecionada. O editor continua sendo a trilha declarativa da entrega.
                   </p>
 
                   <div class="terminal-toolbar">
-                    <span>Shell interativa do laboratorio</span>
+                    <span>Painel interativo da pratica</span>
                     <span class="terminal-mode-label" id="terminal-mode-label">Sem sessao ativa</span>
                   </div>
 
@@ -274,7 +274,7 @@
               <aside class="runbook-panel">
                 <div class="panel-header compact">
                   <p class="eyebrow">Roteiro de execucao</p>
-                  <h3>Passos guiados do terminal</h3>
+                  <h3>Passos guiados da unidade</h3>
                 </div>
 
                 <p class="runbook-intro" id="runbook-intro"></p>
