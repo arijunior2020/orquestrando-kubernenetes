@@ -226,3 +226,84 @@ func TestSQLiteStoreSubmissionLimitAndBestScore(t *testing.T) {
 		t.Fatalf("esperava melhor score 80, recebeu %d", workspace.ValidationScore)
 	}
 }
+
+func TestSQLiteStoreLoadAdminStudentDetailKeepsCompletedTasksPerLab(t *testing.T) {
+	t.Parallel()
+
+	store, err := NewSQLiteStore(filepath.Join(t.TempDir(), "kubeclass.db"))
+	if err != nil {
+		t.Fatalf("falha ao abrir sqlite store: %v", err)
+	}
+
+	if _, err := store.CreateCohort(context.Background(), CreateCohortParams{
+		Code:  "turma-a",
+		Title: "Turma A",
+	}); err != nil {
+		t.Fatalf("falha ao criar turma: %v", err)
+	}
+
+	dashboard, err := store.UpsertSession(context.Background(), SessionUpsertParams{
+		Name:       "Aluno Teste",
+		Email:      "aluno@example.com",
+		CohortCode: "turma-a",
+	})
+	if err != nil {
+		t.Fatalf("falha ao criar sessao do aluno: %v", err)
+	}
+
+	lab1Validation, err := json.Marshal(map[string]any{"labId": "lab-1", "score": 100, "allPassed": true})
+	if err != nil {
+		t.Fatalf("falha ao criar validacao do lab-1: %v", err)
+	}
+
+	lab2Validation, err := json.Marshal(map[string]any{"labId": "lab-2", "score": 80, "allPassed": false})
+	if err != nil {
+		t.Fatalf("falha ao criar validacao do lab-2: %v", err)
+	}
+
+	if err := store.SaveWorkspace(context.Background(), SaveWorkspaceParams{
+		StudentID:            dashboard.Student.ID,
+		LabID:                "lab-1",
+		SessionID:            "encontro-1",
+		Solution:             "kind: Pod",
+		TerminalLog:          "$ kubectl get pods",
+		Validation:           lab1Validation,
+		CompletedTaskIndexes: []int{0, 2},
+	}); err != nil {
+		t.Fatalf("falha ao salvar workspace do lab-1: %v", err)
+	}
+
+	if err := store.SaveWorkspace(context.Background(), SaveWorkspaceParams{
+		StudentID:            dashboard.Student.ID,
+		LabID:                "lab-2",
+		SessionID:            "encontro-2",
+		Solution:             "kind: Deployment",
+		TerminalLog:          "$ kubectl get deploy",
+		Validation:           lab2Validation,
+		CompletedTaskIndexes: []int{1, 3, 4},
+	}); err != nil {
+		t.Fatalf("falha ao salvar workspace do lab-2: %v", err)
+	}
+
+	adminDetail, err := store.LoadAdminStudentDetail(context.Background(), dashboard.Student.ID, "turma-a")
+	if err != nil {
+		t.Fatalf("falha ao carregar detail admin: %v", err)
+	}
+
+	if adminDetail.Student.CompletedTasks != 5 {
+		t.Fatalf("esperava 5 tarefas concluidas no resumo, recebeu %d", adminDetail.Student.CompletedTasks)
+	}
+
+	workspacesByLab := make(map[string]AdminLabStatus, len(adminDetail.Workspaces))
+	for _, workspace := range adminDetail.Workspaces {
+		workspacesByLab[workspace.LabID] = workspace
+	}
+
+	if len(workspacesByLab["lab-1"].CompletedTaskIndexes) != 2 {
+		t.Fatalf("esperava 2 tarefas concluidas no lab-1, recebeu %d", len(workspacesByLab["lab-1"].CompletedTaskIndexes))
+	}
+
+	if len(workspacesByLab["lab-2"].CompletedTaskIndexes) != 3 {
+		t.Fatalf("esperava 3 tarefas concluidas no lab-2, recebeu %d", len(workspacesByLab["lab-2"].CompletedTaskIndexes))
+	}
+}
