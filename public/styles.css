@@ -9,9 +9,9 @@
   --accent: #2f80ed;
   --accent-strong: #215db2;
   --accent-soft: rgba(47, 128, 237, 0.12);
-  --signal: #d89b45;
+  --signal: #9a5a08;
   --signal-soft: rgba(216, 155, 69, 0.12);
-  --success: #2ea97d;
+  --success: #1f7a5b;
   --success-soft: rgba(46, 169, 125, 0.12);
   --danger: #de6b7a;
   --danger-soft: rgba(222, 107, 122, 0.12);
@@ -198,7 +198,7 @@ body::before {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-size: 0.72rem;
-  color: var(--accent);
+  color: var(--accent-strong);
 }
 
 .hero-stat strong,
@@ -1844,7 +1844,9 @@ body::before {
 .editor-callout {
   padding: 0.9rem 1rem;
   border-radius: 18px;
-  color: #d8e8ff;
+  background: rgba(227, 239, 255, 0.96);
+  border-color: rgba(47, 128, 237, 0.18);
+  color: #27476f;
   line-height: 1.55;
 }
 

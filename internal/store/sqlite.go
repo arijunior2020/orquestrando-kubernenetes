@@ -937,7 +937,7 @@ func (s *SQLiteStore) LoadAdminStudentDetail(ctx context.Context, studentID int6
 	}
 
 	detail := AdminStudentDetail{Student: summary}
-	workspacesMap := map[string]*AdminLabStatus{}
+	workspacesMap := map[string]int{}
 
 	rows, err := s.db.QueryContext(
 		ctx,
@@ -974,7 +974,7 @@ func (s *SQLiteStore) LoadAdminStudentDetail(ctx context.Context, studentID int6
 		}
 
 		detail.Workspaces = append(detail.Workspaces, labStatus)
-		workspacesMap[labStatus.LabID] = &detail.Workspaces[len(detail.Workspaces)-1]
+		workspacesMap[labStatus.LabID] = len(detail.Workspaces) - 1
 	}
 
 	taskRows, err := s.db.QueryContext(
@@ -999,8 +999,11 @@ func (s *SQLiteStore) LoadAdminStudentDetail(ctx context.Context, studentID int6
 		if err := taskRows.Scan(&labID, &taskIndex); err != nil {
 			return detail, fmt.Errorf("falha ao ler tarefa concluida: %w", err)
 		}
-		if workspace := workspacesMap[labID]; workspace != nil {
-			workspace.CompletedTaskIndexes = append(workspace.CompletedTaskIndexes, taskIndex)
+		if workspaceIndex, ok := workspacesMap[labID]; ok {
+			detail.Workspaces[workspaceIndex].CompletedTaskIndexes = append(
+				detail.Workspaces[workspaceIndex].CompletedTaskIndexes,
+				taskIndex,
+			)
 		}
 	}
 
@@ -1029,14 +1032,14 @@ func (s *SQLiteStore) LoadAdminStudentDetail(ctx context.Context, studentID int6
 		if err := submissionStats.Scan(&labID, &submissionCount, &lastSubmissionAt, &bestScore, &anyPassed); err != nil {
 			return detail, fmt.Errorf("falha ao ler estatistica de submissao: %w", err)
 		}
-		if workspace := workspacesMap[labID]; workspace != nil {
-			workspace.SubmissionCount = submissionCount
-			workspace.LastSubmissionAt = lastSubmissionAt
-			if bestScore > workspace.ValidationScore {
-				workspace.ValidationScore = bestScore
+		if workspaceIndex, ok := workspacesMap[labID]; ok {
+			detail.Workspaces[workspaceIndex].SubmissionCount = submissionCount
+			detail.Workspaces[workspaceIndex].LastSubmissionAt = lastSubmissionAt
+			if bestScore > detail.Workspaces[workspaceIndex].ValidationScore {
+				detail.Workspaces[workspaceIndex].ValidationScore = bestScore
 			}
 			if anyPassed == 1 {
-				workspace.ValidationPassed = true
+				detail.Workspaces[workspaceIndex].ValidationPassed = true
 			}
 		}
 	}
