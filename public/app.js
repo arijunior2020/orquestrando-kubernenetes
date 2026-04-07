@@ -351,9 +351,13 @@ const state = {
     email: "",
     cohortCode: "",
   },
+  accessLookup: {
+    student: null,
+    cohorts: [],
+  },
   accessStatus: {
     message:
-      "Use e-mail, senha e codigo da turma para autenticar sua sessao de laboratorio.",
+      "Use e-mail e senha para localizar suas turmas matriculadas ou abra a pagina de cadastro.",
     tone: "muted",
   },
   editorStatus: {
@@ -404,9 +408,11 @@ const elements = {
   accessForm: document.querySelector("#access-form"),
   accessEmail: document.querySelector("#access-email"),
   accessPassword: document.querySelector("#access-password"),
-  accessCohort: document.querySelector("#access-cohort"),
   accessSubmitButton: document.querySelector("#access-submit-button"),
   accessStatus: document.querySelector("#access-status"),
+  accessCohortPanel: document.querySelector("#access-cohort-panel"),
+  accessCohortCopy: document.querySelector("#access-cohort-copy"),
+  accessCohortList: document.querySelector("#access-cohort-list"),
   timeline: document.querySelector("#timeline"),
   sessionOrder: document.querySelector("#session-order"),
   sessionTitle: document.querySelector("#session-title"),
@@ -543,12 +549,91 @@ const getStudentRouteKeyFromPath = (pathname) => {
   return entry?.[0] || "overview";
 };
 
+const consumeAccessRedirectHint = () => {
+  const currentURL = new URL(window.location.href);
+  const registered = currentURL.searchParams.get("registered") === "1";
+  const email = currentURL.searchParams.get("email")?.trim() || "";
+  const cohortCode = currentURL.searchParams.get("cohortCode")?.trim() || "";
+  const hasRegistrationHint =
+    currentURL.searchParams.has("registered") ||
+    currentURL.searchParams.has("email") ||
+    currentURL.searchParams.has("cohortCode");
+
+  if (email) {
+    state.accessProfile.email = email;
+  }
+
+  if (cohortCode) {
+    state.accessProfile.cohortCode = cohortCode;
+  }
+
+  if (hasRegistrationHint) {
+    currentURL.search = "";
+    window.history.replaceState({}, "", `${currentURL.pathname}${currentURL.hash}`);
+  }
+
+  return {
+    registered,
+    preserveAccessProfile: registered || Boolean(email || cohortCode),
+  };
+};
+
 const describeStudentSession = (student, cohort) => {
   if (!student?.name || !cohort?.title) {
     return null;
   }
 
   return `${student.name} em ${cohort.title}`;
+};
+
+const resetAccessLookup = () => {
+  state.accessLookup = {
+    student: null,
+    cohorts: [],
+  };
+};
+
+const formatAccessDate = (value) => {
+  if (!value) {
+    return "sem data definida";
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+  }).format(date);
+};
+
+const getCohortAccessTone = (status) => {
+  if (status === "open") {
+    return "success";
+  }
+
+  if (status === "upcoming") {
+    return "info";
+  }
+
+  return "neutral";
+};
+
+const getCohortAccessLabel = (status) => {
+  if (status === "open") {
+    return "Aberta";
+  }
+
+  if (status === "upcoming") {
+    return "Em breve";
+  }
+
+  if (status === "closed") {
+    return "Encerrada";
+  }
+
+  return "Indisponivel";
 };
 
 const syncShellVisibility = () => {
@@ -1277,6 +1362,56 @@ const renderRuntimePanel = () => {
     : "Sessao provisionada";
 };
 
+const renderAccessCohortPicker = () => {
+  const cohorts = Array.isArray(state.accessLookup.cohorts) ? state.accessLookup.cohorts : [];
+  const visible = !state.student?.id && cohorts.length > 0;
+
+  elements.accessCohortPanel.hidden = !visible;
+  if (!visible) {
+    elements.accessCohortList.innerHTML = "";
+    return;
+  }
+
+  const hasOpenCohort = cohorts.some((item) => item.accessOpen);
+  elements.accessCohortCopy.textContent = hasOpenCohort
+    ? "Credenciais validadas. Escolha uma turma aberta para iniciar a sessão acadêmica."
+    : "Suas turmas foram encontradas, mas nenhuma está aberta no momento. Consulte as janelas abaixo.";
+
+  elements.accessCohortList.innerHTML = cohorts
+    .map((item) => {
+      const tone = getCohortAccessTone(item.accessStatus);
+      const startLabel = formatAccessDate(item.cohort.accessStartsAt);
+      const endLabel = formatAccessDate(item.cohort.accessEndsAt);
+      const isSelected = state.accessProfile.cohortCode === item.cohort.code;
+
+      return `
+        <article class="access-cohort-card ${item.accessOpen ? "open" : "locked"} ${isSelected ? "selected" : ""}">
+          <div class="access-cohort-header">
+            <div>
+              <span class="hero-label">${escapeHtml(item.cohort.code.toUpperCase())}</span>
+              <h3>${escapeHtml(item.cohort.title)}</h3>
+            </div>
+            <span class="timeline-status ${tone}">${escapeHtml(getCohortAccessLabel(item.accessStatus))}</span>
+          </div>
+          <div class="access-cohort-meta">
+            <span>Início: ${escapeHtml(startLabel)}</span>
+            <span>Fim: ${escapeHtml(endLabel)}</span>
+          </div>
+          <p>${escapeHtml(item.accessMessage)}</p>
+          <button
+            class="primary-button wide"
+            data-cohort-enter="${escapeHtml(item.cohort.code)}"
+            type="button"
+            ${item.accessOpen ? "" : "disabled"}
+          >
+            ${item.accessOpen ? "Entrar nesta turma" : "Aguardando abertura"}
+          </button>
+        </article>
+      `;
+    })
+    .join("");
+};
+
 const renderHeader = () => {
   const progress = calculateProgress();
   const isConnected = Boolean(state.student?.id);
@@ -1305,13 +1440,13 @@ const renderHeader = () => {
     ? `${state.cohort.code.toUpperCase()} • ${state.cohort.title}`
     : "-";
 
-  elements.accessSubmitButton.textContent = isConnected ? "Sessao ativa" : "Entrar no ambiente";
+  elements.accessSubmitButton.textContent = isConnected ? "Sessao ativa" : "Ver turmas disponíveis";
   elements.accessEmail.value = state.accessProfile.email;
-  elements.accessCohort.value = state.accessProfile.cohortCode;
 
   setAccessStatus(state.accessStatus.message, state.accessStatus.tone);
   setEditorStatus(state.editorStatus.message, state.editorStatus.tone);
   setRuntimeStatus(state.runtime.status.message, state.runtime.status.tone);
+  renderAccessCohortPicker();
 };
 
 const renderSessionDetails = () => {
@@ -1690,6 +1825,7 @@ const syncStateFromDashboard = (dashboard) => {
     email: dashboard.student?.email || "",
     cohortCode: dashboard.cohort?.code || "",
   };
+  resetAccessLookup();
   state.labSubmissionCounts = {};
   let validatedCurrentLabs = 0;
 
@@ -1826,6 +1962,7 @@ const disconnectRuntimeTerminal = (message) => {
 const clearStudentSession = (message, tone = "muted", preserveAccessProfile = false) => {
   disconnectRuntimeTerminal("Terminal encerrado porque a sessao do aluno foi finalizada.");
   resetLearningState();
+  resetAccessLookup();
   state.studentId = null;
   state.student = null;
   state.cohort = null;
@@ -1840,7 +1977,7 @@ const clearStudentSession = (message, tone = "muted", preserveAccessProfile = fa
   }
   setAccessStatus(message, tone);
   setEditorStatus(
-    "Entre com e-mail, senha e codigo da turma para liberar o editor e o terminal do laboratorio.",
+    "Entre com e-mail, senha e selecione uma turma aberta para liberar o editor e o terminal do laboratorio.",
     "muted",
   );
   setRuntimeStatus(
@@ -2069,6 +2206,131 @@ const validateCurrentSolution = async () => {
   );
 };
 
+const lookupStudentCohorts = async () => {
+  state.accessProfile.email = elements.accessEmail.value.trim();
+
+  const requiredMessage = buildRequiredMessage([
+    [elements.accessEmail, "e-mail"],
+    [elements.accessPassword, "senha"],
+  ]);
+
+  if (requiredMessage) {
+    setAccessStatus(requiredMessage, "warning");
+    showToast(requiredMessage, "warning");
+    return;
+  }
+
+  resetAccessLookup();
+  elements.accessSubmitButton.disabled = true;
+  setAccessStatus("Validando credenciais e carregando suas turmas...", "muted");
+
+  try {
+    const lookup = await fetchJSON("/api/auth/student/access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: state.accessProfile.email,
+        password: elements.accessPassword.value,
+      }),
+    });
+
+    state.accessLookup = {
+      student: lookup.student || null,
+      cohorts: Array.isArray(lookup.cohorts) ? lookup.cohorts : [],
+    };
+    persistState();
+    render();
+
+    const hasOpenCohort = state.accessLookup.cohorts.some((item) => item.accessOpen);
+    setAccessStatus(
+      hasOpenCohort
+        ? "Credenciais validadas. Escolha abaixo a turma aberta para entrar."
+        : "Credenciais validadas, mas nenhuma turma vinculada está aberta no momento.",
+      hasOpenCohort ? "success" : "warning",
+    );
+    showToast(
+      hasOpenCohort
+        ? "Turmas carregadas. Escolha a turma que deseja abrir."
+        : "Turmas carregadas, porém sem janela de acesso aberta.",
+      hasOpenCohort ? "success" : "warning",
+    );
+  } catch (error) {
+    const message = normalizeErrorMessage(
+      error,
+      "Nao foi possivel localizar suas turmas agora. Revise e-mail e senha.",
+    );
+    setAccessStatus(message, "danger");
+    showToast(message, "danger");
+    renderAccessCohortPicker();
+  } finally {
+    elements.accessSubmitButton.disabled = false;
+  }
+};
+
+const enterStudentCohort = async (cohortCode) => {
+  if (!cohortCode) {
+    return;
+  }
+
+  state.accessProfile = {
+    email: elements.accessEmail.value.trim(),
+    cohortCode,
+  };
+
+  const requiredMessage = buildRequiredMessage([
+    [elements.accessEmail, "e-mail"],
+    [elements.accessPassword, "senha"],
+  ]);
+
+  if (requiredMessage) {
+    setAccessStatus(requiredMessage, "warning");
+    showToast(requiredMessage, "warning");
+    return;
+  }
+
+  setAccessStatus("Abrindo a sessão da turma selecionada...", "muted");
+
+  try {
+    const dashboard = await fetchJSON("/api/auth/student/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: state.accessProfile.email,
+        password: elements.accessPassword.value,
+        cohortCode: state.accessProfile.cohortCode,
+      }),
+    });
+
+    syncStateFromDashboard(dashboard);
+    const sessionLabel = describeStudentSession(dashboard.student, dashboard.cohort);
+    if (!sessionLabel) {
+      throw new Error(
+        "A autenticacao foi concluida, mas os dados do aluno ou da turma nao chegaram completos. Tente entrar novamente.",
+      );
+    }
+
+    elements.accessPassword.value = "";
+    setAccessStatus(`Sessao ativa para ${sessionLabel}.`, "success");
+    setEditorStatus(
+      "Workspace conectado. Use salvar ou validar para registrar evidencias da aula.",
+      "success",
+    );
+    showToast(
+      `Entrada liberada para ${dashboard.student.name} na turma ${dashboard.cohort.code.toUpperCase()}.`,
+      "success",
+    );
+    render();
+    setStudentRoute(state.routeKey, { replace: true });
+  } catch (error) {
+    const message = normalizeErrorMessage(
+      error,
+      "Nao foi possivel abrir a turma selecionada agora.",
+    );
+    setAccessStatus(message, "danger");
+    showToast(message, "danger");
+  }
+};
+
 const attachEventListeners = () => {
   const on = (element, type, handler) => {
     if (!element) {
@@ -2082,81 +2344,36 @@ const attachEventListeners = () => {
 
   on(elements.accessForm, "submit", async (event) => {
     event.preventDefault();
-
-    state.accessProfile = {
-      email: elements.accessEmail.value.trim(),
-      cohortCode: elements.accessCohort.value.trim(),
-    };
-
-    const requiredMessage = buildRequiredMessage([
-      [elements.accessEmail, "e-mail"],
-      [elements.accessPassword, "senha"],
-      [elements.accessCohort, "codigo da turma"],
-    ]);
-
-    if (requiredMessage) {
-      setAccessStatus(requiredMessage, "warning");
-      showToast(requiredMessage, "warning");
-      return;
-    }
-
-    elements.accessSubmitButton.disabled = true;
-    setAccessStatus("Validando credenciais da turma...", "muted");
-
-    try {
-      const dashboard = await fetchJSON("/api/auth/student/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: state.accessProfile.email,
-          password: elements.accessPassword.value,
-          cohortCode: state.accessProfile.cohortCode,
-        }),
-      });
-
-      syncStateFromDashboard(dashboard);
-      const sessionLabel = describeStudentSession(dashboard.student, dashboard.cohort);
-      if (!sessionLabel) {
-        throw new Error(
-          "A autenticacao foi concluida, mas os dados do aluno ou da turma nao chegaram completos. Tente entrar novamente.",
-        );
-      }
-      elements.accessPassword.value = "";
-      setAccessStatus(`Sessao ativa para ${sessionLabel}.`, "success");
-      setEditorStatus(
-        "Workspace conectado. Use salvar ou validar para registrar evidencias da aula.",
-        "success",
-      );
-      showToast(
-        `Entrada liberada para ${dashboard.student.name} na turma ${dashboard.cohort.code.toUpperCase()}.`,
-        "success",
-      );
-      render();
-      setStudentRoute(state.routeKey, { replace: true });
-    } catch (error) {
-      const message = normalizeErrorMessage(
-        error,
-        "Nao foi possivel autenticar sua sessao de laboratorio. Revise e-mail, senha e codigo da turma.",
-      );
-      setAccessStatus(message, "danger");
-      showToast(message, "danger");
-    } finally {
-      elements.accessSubmitButton.disabled = false;
-    }
+    await lookupStudentCohorts();
   });
 
-  [elements.accessEmail, elements.accessCohort].forEach((input) => {
-    if (!input) {
+  elements.accessCohortList?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-cohort-enter]");
+    if (!button || button.disabled) {
       return;
     }
 
-    input.addEventListener("input", () => {
-      state.accessProfile = {
-        email: elements.accessEmail.value,
-        cohortCode: elements.accessCohort.value,
-      };
-      persistState();
-    });
+    await enterStudentCohort(button.dataset.cohortEnter);
+  });
+
+  elements.accessEmail?.addEventListener("input", () => {
+    state.accessProfile.email = elements.accessEmail.value;
+    if (state.accessLookup.cohorts.length > 0) {
+      resetAccessLookup();
+      state.accessProfile.cohortCode = "";
+      setAccessStatus("Credenciais alteradas. Valide novamente para listar suas turmas.", "muted");
+      render();
+    }
+    persistState();
+  });
+
+  elements.accessPassword?.addEventListener("input", () => {
+    if (state.accessLookup.cohorts.length > 0) {
+      resetAccessLookup();
+      state.accessProfile.cohortCode = "";
+      setAccessStatus("Senha alterada. Valide novamente para listar suas turmas.", "muted");
+      render();
+    }
   });
 
   elements.studentNav?.addEventListener("click", (event) => {
@@ -2286,7 +2503,7 @@ const attachEventListeners = () => {
     }
 
     clearStudentSession(
-      "Sessao encerrada. Informe e-mail, senha e codigo da turma para liberar um novo ambiente.",
+      "Sessao encerrada. Informe e-mail, senha e escolha uma turma aberta para liberar um novo ambiente.",
       "muted",
     );
     showToast("Sessao do aluno encerrada.", "info");
@@ -2296,6 +2513,7 @@ const attachEventListeners = () => {
 const initialize = async () => {
   loadPersistedState();
   state.routeKey = getStudentRouteKeyFromPath(window.location.pathname);
+  const accessRedirectHint = consumeAccessRedirectHint();
 
   try {
     state.course = await fetchJSON("/api/course");
@@ -2351,10 +2569,15 @@ const initialize = async () => {
       );
     } else {
       clearStudentSession(
-        "Entre com e-mail, senha e codigo da turma cadastrados pelo instrutor.",
-        "muted",
-        true,
+        accessRedirectHint.registered
+          ? "Cadastro concluido. Use a senha criada para listar suas turmas e entrar na que estiver aberta."
+          : "Entre com e-mail e senha para listar suas turmas. Se ainda nao tiver acesso, abra a pagina de cadastro.",
+        accessRedirectHint.registered ? "success" : "muted",
+        accessRedirectHint.preserveAccessProfile,
       );
+      if (accessRedirectHint.preserveAccessProfile) {
+        persistState();
+      }
     }
   } catch (error) {
     const message = normalizeErrorMessage(

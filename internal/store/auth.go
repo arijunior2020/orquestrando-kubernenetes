@@ -22,6 +22,14 @@ var (
 	ErrAdminAlreadyBootstrapped = errors.New("admin ja configurado")
 )
 
+type CohortAccessError struct {
+	Message string
+}
+
+func (e *CohortAccessError) Error() string {
+	return e.Message
+}
+
 type AdminAccount struct {
 	ID       int64  `json:"id"`
 	Username string `json:"username"`
@@ -39,6 +47,11 @@ type StudentLoginParams struct {
 	Email      string
 	Password   string
 	CohortCode string
+}
+
+type StudentAccessLookupParams struct {
+	Email    string
+	Password string
 }
 
 type AdminLoginParams struct {
@@ -64,6 +77,86 @@ type UpdateStudentParams struct {
 type RegisteredStudent struct {
 	Student Student `json:"student"`
 	Cohort  Cohort  `json:"cohort"`
+}
+
+type StudentCohortAccess struct {
+	Cohort        Cohort `json:"cohort"`
+	AccessOpen    bool   `json:"accessOpen"`
+	AccessStatus  string `json:"accessStatus"`
+	AccessMessage string `json:"accessMessage"`
+}
+
+type StudentAccessLookup struct {
+	Student Student               `json:"student"`
+	Cohorts []StudentCohortAccess `json:"cohorts"`
+}
+
+func formatCohortDateBR(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+
+	parsed, err := time.Parse(cohortDateLayout, value)
+	if err != nil {
+		return value
+	}
+
+	return parsed.Format("02/01/2006")
+}
+
+func describeCohortAccess(cohort Cohort, now time.Time) StudentCohortAccess {
+	today := now.In(time.Local).Format(cohortDateLayout)
+	startLabel := formatCohortDateBR(cohort.AccessStartsAt)
+	endLabel := formatCohortDateBR(cohort.AccessEndsAt)
+
+	access := StudentCohortAccess{
+		Cohort:       cohort,
+		AccessOpen:   true,
+		AccessStatus: "open",
+	}
+
+	switch {
+	case cohort.AccessStartsAt != "" && today < cohort.AccessStartsAt:
+		access.AccessOpen = false
+		access.AccessStatus = "upcoming"
+		if endLabel != "" {
+			access.AccessMessage = fmt.Sprintf(
+				"O acesso comecara em %s e ficara disponivel ate %s.",
+				startLabel,
+				endLabel,
+			)
+		} else {
+			access.AccessMessage = fmt.Sprintf("O acesso comecara em %s.", startLabel)
+		}
+	case cohort.AccessEndsAt != "" && today > cohort.AccessEndsAt:
+		access.AccessOpen = false
+		access.AccessStatus = "closed"
+		if startLabel != "" {
+			access.AccessMessage = fmt.Sprintf(
+				"Esta turma ficou disponivel de %s ate %s e ja foi encerrada.",
+				startLabel,
+				endLabel,
+			)
+		} else {
+			access.AccessMessage = fmt.Sprintf("Esta turma foi encerrada em %s.", endLabel)
+		}
+	default:
+		if startLabel != "" && endLabel != "" {
+			access.AccessMessage = fmt.Sprintf(
+				"Turma aberta de %s ate %s.",
+				startLabel,
+				endLabel,
+			)
+		} else if endLabel != "" {
+			access.AccessMessage = fmt.Sprintf("Turma aberta ate %s.", endLabel)
+		} else if startLabel != "" {
+			access.AccessMessage = fmt.Sprintf("Turma aberta desde %s.", startLabel)
+		} else {
+			access.AccessMessage = "Turma aberta para acesso."
+		}
+	}
+
+	return access
 }
 
 func (s *SQLiteStore) AdminSetupRequired(ctx context.Context) (bool, error) {
@@ -176,9 +269,9 @@ func (s *SQLiteStore) CreateStudent(ctx context.Context, params CreateStudentPar
 	var cohort Cohort
 	if err := tx.QueryRowContext(
 		ctx,
-		`SELECT id, code, title FROM cohorts WHERE code = ?`,
+		`SELECT id, code, title, access_starts_at, access_ends_at FROM cohorts WHERE code = ?`,
 		cohortCode,
-	).Scan(&cohort.ID, &cohort.Code, &cohort.Title); err != nil {
+	).Scan(&cohort.ID, &cohort.Code, &cohort.Title, &cohort.AccessStartsAt, &cohort.AccessEndsAt); err != nil {
 		if err == sql.ErrNoRows {
 			return RegisteredStudent{}, fmt.Errorf("codigo de turma invalido ou nao cadastrado pelo instrutor")
 		}
@@ -259,9 +352,9 @@ func (s *SQLiteStore) UpdateStudent(ctx context.Context, params UpdateStudentPar
 	var cohort Cohort
 	if err := tx.QueryRowContext(
 		ctx,
-		`SELECT id, code, title FROM cohorts WHERE code = ?`,
+		`SELECT id, code, title, access_starts_at, access_ends_at FROM cohorts WHERE code = ?`,
 		cohortCode,
-	).Scan(&cohort.ID, &cohort.Code, &cohort.Title); err != nil {
+	).Scan(&cohort.ID, &cohort.Code, &cohort.Title, &cohort.AccessStartsAt, &cohort.AccessEndsAt); err != nil {
 		if err == sql.ErrNoRows {
 			return RegisteredStudent{}, fmt.Errorf("codigo de turma invalido ou nao cadastrado pelo instrutor")
 		}
@@ -359,6 +452,71 @@ func (s *SQLiteStore) DeleteStudent(ctx context.Context, studentID int64) error 
 	return nil
 }
 
+func (s *SQLiteStore) LoadStudentAccessLookup(ctx context.Context, params StudentAccessLookupParams) (StudentAccessLookup, error) {
+	email := strings.ToLower(strings.TrimSpace(params.Email))
+	password := strings.TrimSpace(params.Password)
+	if email == "" || password == "" {
+		return StudentAccessLookup{}, ErrInvalidCredentials
+	}
+
+	var (
+		student      Student
+		passwordHash string
+	)
+	if err := s.db.QueryRowContext(
+		ctx,
+		`SELECT id, name, email, password_hash
+		 FROM students
+		 WHERE email = ?
+		 LIMIT 1`,
+		email,
+	).Scan(&student.ID, &student.Name, &student.Email, &passwordHash); err != nil {
+		if err == sql.ErrNoRows {
+			return StudentAccessLookup{}, ErrInvalidCredentials
+		}
+		return StudentAccessLookup{}, fmt.Errorf("falha ao localizar aluno: %w", err)
+	}
+
+	if passwordHash == "" || !verifyPassword(passwordHash, password) {
+		return StudentAccessLookup{}, ErrInvalidCredentials
+	}
+
+	rows, err := s.db.QueryContext(
+		ctx,
+		`SELECT c.id, c.code, c.title, COALESCE(c.access_starts_at, ''), COALESCE(c.access_ends_at, '')
+		 FROM enrollments e
+		 JOIN cohorts c ON c.id = e.cohort_id
+		 WHERE e.student_id = ?
+		 ORDER BY c.code ASC`,
+		student.ID,
+	)
+	if err != nil {
+		return StudentAccessLookup{}, fmt.Errorf("falha ao listar turmas matriculadas: %w", err)
+	}
+	defer rows.Close()
+
+	lookup := StudentAccessLookup{Student: student}
+	now := time.Now()
+
+	for rows.Next() {
+		var cohort Cohort
+		if err := rows.Scan(&cohort.ID, &cohort.Code, &cohort.Title, &cohort.AccessStartsAt, &cohort.AccessEndsAt); err != nil {
+			return StudentAccessLookup{}, fmt.Errorf("falha ao ler turma matriculada: %w", err)
+		}
+		lookup.Cohorts = append(lookup.Cohorts, describeCohortAccess(cohort, now))
+	}
+
+	if err := rows.Err(); err != nil {
+		return StudentAccessLookup{}, fmt.Errorf("falha ao iterar turmas matriculadas: %w", err)
+	}
+
+	if len(lookup.Cohorts) == 0 {
+		return StudentAccessLookup{}, fmt.Errorf("nenhuma turma vinculada a este aluno")
+	}
+
+	return lookup, nil
+}
+
 func (s *SQLiteStore) AuthenticateStudent(ctx context.Context, params StudentLoginParams) (Dashboard, string, error) {
 	email := strings.ToLower(strings.TrimSpace(params.Email))
 	password := strings.TrimSpace(params.Password)
@@ -381,7 +539,9 @@ func (s *SQLiteStore) AuthenticateStudent(ctx context.Context, params StudentLog
 			s.password_hash,
 			c.id,
 			c.code,
-			c.title
+			c.title,
+			COALESCE(c.access_starts_at, ''),
+			COALESCE(c.access_ends_at, '')
 		FROM students s
 		JOIN enrollments e ON e.student_id = s.id
 		JOIN cohorts c ON c.id = e.cohort_id
@@ -397,6 +557,8 @@ func (s *SQLiteStore) AuthenticateStudent(ctx context.Context, params StudentLog
 		&cohort.ID,
 		&cohort.Code,
 		&cohort.Title,
+		&cohort.AccessStartsAt,
+		&cohort.AccessEndsAt,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return Dashboard{}, "", ErrInvalidCredentials
@@ -406,6 +568,11 @@ func (s *SQLiteStore) AuthenticateStudent(ctx context.Context, params StudentLog
 
 	if passwordHash == "" || !verifyPassword(passwordHash, password) {
 		return Dashboard{}, "", ErrInvalidCredentials
+	}
+
+	cohortAccess := describeCohortAccess(cohort, time.Now())
+	if !cohortAccess.AccessOpen {
+		return Dashboard{}, "", &CohortAccessError{Message: cohortAccess.AccessMessage}
 	}
 
 	dashboard, err := s.LoadDashboard(ctx, student.ID)
@@ -495,9 +662,9 @@ func (s *SQLiteStore) ResolveSession(ctx context.Context, rawToken string) (Sess
 		}
 		if err := s.db.QueryRowContext(
 			ctx,
-			`SELECT id, code, title FROM cohorts WHERE id = ?`,
+			`SELECT id, code, title, access_starts_at, access_ends_at FROM cohorts WHERE id = ?`,
 			cohortID,
-		).Scan(&cohort.ID, &cohort.Code, &cohort.Title); err != nil {
+		).Scan(&cohort.ID, &cohort.Code, &cohort.Title, &cohort.AccessStartsAt, &cohort.AccessEndsAt); err != nil {
 			if err == sql.ErrNoRows {
 				return SessionPrincipal{}, ErrAuthRequired
 			}

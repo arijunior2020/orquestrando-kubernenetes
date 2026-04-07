@@ -86,6 +86,166 @@ func TestStudentLoginEndpointRejectsInvalidCredentials(t *testing.T) {
 	}
 }
 
+func TestStudentRegisterEndpointCreatesStudent(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	createTestCohort(t, server, "turma-cadastro", "Turma Cadastro")
+
+	body := []byte(`{
+		"name":"Maria Oliveira",
+		"email":"maria@example.com",
+		"cohortCode":"turma-cadastro",
+		"password":"senha123"
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/api/auth/student/register", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("esperava status 201 ao cadastrar aluno, recebeu %d", response.Code)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("resposta invalida: %v", err)
+	}
+
+	student := payload["student"].(map[string]any)
+	cohort := payload["cohort"].(map[string]any)
+	if student["email"].(string) != "maria@example.com" {
+		t.Fatal("esperava aluno cadastrado na resposta")
+	}
+	if cohort["code"].(string) != "turma-cadastro" {
+		t.Fatal("esperava turma associada na resposta do cadastro")
+	}
+
+	loginBody := []byte(`{"email":"maria@example.com","password":"senha123","cohortCode":"turma-cadastro"}`)
+	loginRequest := httptest.NewRequest(http.MethodPost, "/api/auth/student/login", bytes.NewReader(loginBody))
+	loginRequest.Header.Set("Content-Type", "application/json")
+	loginResponse := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(loginResponse, loginRequest)
+
+	if loginResponse.Code != http.StatusOK {
+		t.Fatalf("esperava status 200 ao autenticar aluno recém-cadastrado, recebeu %d", loginResponse.Code)
+	}
+}
+
+func TestStudentRegisterPageReturnsRegisterScreen(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	request := httptest.NewRequest(http.MethodGet, "/cadastro", nil)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("esperava status 200 em /cadastro, recebeu %d", response.Code)
+	}
+
+	if !bytes.Contains(response.Body.Bytes(), []byte(`id="register-form"`)) {
+		t.Fatal("esperava a tela de cadastro do aluno em /cadastro")
+	}
+}
+
+func TestStudentAccessEndpointReturnsEnrolledCohorts(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	if _, err := server.store.CreateCohort(context.Background(), store.CreateCohortParams{
+		Code:           "turma-futura",
+		Title:          "Turma Futura",
+		AccessStartsAt: "2999-04-09",
+		AccessEndsAt:   "2999-04-25",
+	}); err != nil {
+		t.Fatalf("falha ao criar turma com janela: %v", err)
+	}
+	createTestStudent(t, server, "Aluno Futuro", "futuro@example.com", "turma-futura", "senha123")
+
+	body := []byte(`{"email":"futuro@example.com","password":"senha123"}`)
+	request := httptest.NewRequest(http.MethodPost, "/api/auth/student/access", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("esperava status 200 ao listar turmas do aluno, recebeu %d", response.Code)
+	}
+
+	var payload struct {
+		Student store.Student `json:"student"`
+		Cohorts []struct {
+			AccessOpen   bool   `json:"accessOpen"`
+			AccessStatus string `json:"accessStatus"`
+			Cohort       struct {
+				Code           string `json:"code"`
+				AccessStartsAt string `json:"accessStartsAt"`
+				AccessEndsAt   string `json:"accessEndsAt"`
+			} `json:"cohort"`
+		} `json:"cohorts"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("payload invalido: %v", err)
+	}
+
+	if payload.Student.Email != "futuro@example.com" {
+		t.Fatal("esperava o aluno retornado no lookup de turmas")
+	}
+
+	if len(payload.Cohorts) != 1 {
+		t.Fatalf("esperava 1 turma matriculada, recebeu %d", len(payload.Cohorts))
+	}
+
+	if payload.Cohorts[0].AccessOpen {
+		t.Fatal("esperava turma futura bloqueada para acesso")
+	}
+
+	if payload.Cohorts[0].AccessStatus != "upcoming" {
+		t.Fatalf("esperava status upcoming, recebeu %s", payload.Cohorts[0].AccessStatus)
+	}
+}
+
+func TestStudentLoginEndpointRejectsCohortBeforeStartDate(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	if _, err := server.store.CreateCohort(context.Background(), store.CreateCohortParams{
+		Code:           "turma-bloqueada",
+		Title:          "Turma Bloqueada",
+		AccessStartsAt: "2999-04-09",
+		AccessEndsAt:   "2999-04-25",
+	}); err != nil {
+		t.Fatalf("falha ao criar turma com janela: %v", err)
+	}
+	createTestStudent(t, server, "Aluno Bloqueado", "bloqueado@example.com", "turma-bloqueada", "senha123")
+
+	body := []byte(`{"email":"bloqueado@example.com","password":"senha123","cohortCode":"turma-bloqueada"}`)
+	request := httptest.NewRequest(http.MethodPost, "/api/auth/student/login", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("esperava status 403 para turma fora da janela, recebeu %d", response.Code)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("payload de erro invalido: %v", err)
+	}
+
+	errorMessage, _ := payload["error"].(string)
+	if errorMessage == "" || !bytes.Contains([]byte(errorMessage), []byte("09/04/2999")) {
+		t.Fatalf("esperava mensagem com a data de inicio da turma, recebeu %q", errorMessage)
+	}
+}
+
 func TestValidateEndpointReturnsChecks(t *testing.T) {
 	t.Parallel()
 
