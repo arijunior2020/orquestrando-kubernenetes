@@ -65,14 +65,18 @@ type adminGradeRequest struct {
 }
 
 type adminCreateCohortRequest struct {
-	Code  string `json:"code"`
-	Title string `json:"title"`
+	Code           string `json:"code"`
+	Title          string `json:"title"`
+	AccessStartsAt string `json:"accessStartsAt"`
+	AccessEndsAt   string `json:"accessEndsAt"`
 }
 
 type adminUpdateCohortRequest struct {
-	CurrentCode string `json:"currentCode"`
-	Code        string `json:"code"`
-	Title       string `json:"title"`
+	CurrentCode    string `json:"currentCode"`
+	Code           string `json:"code"`
+	Title          string `json:"title"`
+	AccessStartsAt string `json:"accessStartsAt"`
+	AccessEndsAt   string `json:"accessEndsAt"`
 }
 
 type adminDeleteCohortRequest struct {
@@ -124,6 +128,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/auth/status", s.handleAuthStatus)
 	mux.HandleFunc("/api/auth/admin/bootstrap", s.handleAdminBootstrap)
 	mux.HandleFunc("/api/auth/admin/login", s.handleAdminLogin)
+	mux.HandleFunc("/api/auth/student/access", s.handleStudentAccess)
+	mux.HandleFunc("/api/auth/student/register", s.handleStudentRegister)
 	mux.HandleFunc("/api/auth/student/login", s.handleStudentLogin)
 	mux.HandleFunc("/api/auth/logout", s.handleLogout)
 	mux.HandleFunc("/api/dashboard", s.handleDashboard)
@@ -136,6 +142,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/admin/students", s.handleAdminStudents)
 	mux.HandleFunc("/api/admin/student", s.handleAdminStudent)
 	mux.HandleFunc("/api/admin/grade", s.handleAdminGrade)
+	mux.HandleFunc("/cadastro", s.handleStudentRegisterPage)
+	mux.HandleFunc("/cadastro/", s.handleStudentRegisterPage)
 	mux.HandleFunc("/admin", s.handleAdminPage)
 	mux.HandleFunc("/admin/", s.handleAdminPage)
 	mux.HandleFunc("/", s.handleStatic)
@@ -444,8 +452,10 @@ func (s *Server) handleAdminCohorts(response http.ResponseWriter, request *http.
 		}
 
 		cohort, err := s.store.CreateCohort(request.Context(), store.CreateCohortParams{
-			Code:  payload.Code,
-			Title: payload.Title,
+			Code:           payload.Code,
+			Title:          payload.Title,
+			AccessStartsAt: payload.AccessStartsAt,
+			AccessEndsAt:   payload.AccessEndsAt,
 		})
 		if err != nil {
 			writeJSON(response, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -461,9 +471,11 @@ func (s *Server) handleAdminCohorts(response http.ResponseWriter, request *http.
 		}
 
 		cohort, err := s.store.UpdateCohort(request.Context(), store.UpdateCohortParams{
-			CurrentCode: payload.CurrentCode,
-			Code:        payload.Code,
-			Title:       payload.Title,
+			CurrentCode:    payload.CurrentCode,
+			Code:           payload.Code,
+			Title:          payload.Title,
+			AccessStartsAt: payload.AccessStartsAt,
+			AccessEndsAt:   payload.AccessEndsAt,
 		})
 		if err != nil {
 			writeJSON(response, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -556,6 +568,16 @@ func (s *Server) handleAdminPage(response http.ResponseWriter, request *http.Req
 
 	setNoCacheHeaders(response)
 	http.ServeFile(response, request, filepath.Join(s.staticDir, "admin.html"))
+}
+
+func (s *Server) handleStudentRegisterPage(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodGet {
+		writeJSON(response, http.StatusMethodNotAllowed, map[string]string{"error": "metodo nao permitido"})
+		return
+	}
+
+	setNoCacheHeaders(response)
+	http.ServeFile(response, request, filepath.Join(s.staticDir, "register.html"))
 }
 
 func (s *Server) handleStatic(response http.ResponseWriter, request *http.Request) {
