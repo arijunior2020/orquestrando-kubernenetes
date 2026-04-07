@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/arimateia-junior/orquestrando-kubernenetes/internal/content"
@@ -38,9 +39,13 @@ func TestStudentLoginEndpointReturnsDashboard(t *testing.T) {
 
 	server := newTestServer(t)
 	createTestCohort(t, server, "turma-a", "Turma A")
-	createTestStudent(t, server, "Aluno", "aluno@example.com", "turma-a", "senha123")
+	createTestStudent(t, server, "Aluno", "aluno@example.com", "turma-a", fixturePassword("student"))
 
-	body := []byte(`{"email":"aluno@example.com","password":"senha123","cohortCode":"turma-a"}`)
+	body := mustJSON(t, map[string]string{
+		"email":      "aluno@example.com",
+		"password":   fixturePassword("student"),
+		"cohortCode": "turma-a",
+	})
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/student/login", bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -72,9 +77,13 @@ func TestStudentLoginEndpointRejectsInvalidCredentials(t *testing.T) {
 
 	server := newTestServer(t)
 	createTestCohort(t, server, "turma-a", "Turma A")
-	createTestStudent(t, server, "Aluno", "aluno@example.com", "turma-a", "senha123")
+	createTestStudent(t, server, "Aluno", "aluno@example.com", "turma-a", fixturePassword("student"))
 
-	body := []byte(`{"email":"aluno@example.com","password":"senha-invalida","cohortCode":"turma-a"}`)
+	body := mustJSON(t, map[string]string{
+		"email":      "aluno@example.com",
+		"password":   fixturePassword("invalid"),
+		"cohortCode": "turma-a",
+	})
 	request := httptest.NewRequest(http.MethodPost, "/api/auth/student/login", bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
@@ -86,12 +95,183 @@ func TestStudentLoginEndpointRejectsInvalidCredentials(t *testing.T) {
 	}
 }
 
+func TestStudentRegisterEndpointCreatesStudent(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	createTestCohort(t, server, "turma-cadastro", "Turma Cadastro")
+
+	body := mustJSON(t, map[string]string{
+		"name":       "Maria Oliveira",
+		"email":      "maria@example.com",
+		"cohortCode": "turma-cadastro",
+		"password":   fixturePassword("student"),
+	})
+	request := httptest.NewRequest(http.MethodPost, "/api/auth/student/register", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("esperava status 201 ao cadastrar aluno, recebeu %d", response.Code)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("resposta invalida: %v", err)
+	}
+
+	student := payload["student"].(map[string]any)
+	cohort := payload["cohort"].(map[string]any)
+	if student["email"].(string) != "maria@example.com" {
+		t.Fatal("esperava aluno cadastrado na resposta")
+	}
+	if cohort["code"].(string) != "turma-cadastro" {
+		t.Fatal("esperava turma associada na resposta do cadastro")
+	}
+
+	loginBody := mustJSON(t, map[string]string{
+		"email":      "maria@example.com",
+		"password":   fixturePassword("student"),
+		"cohortCode": "turma-cadastro",
+	})
+	loginRequest := httptest.NewRequest(http.MethodPost, "/api/auth/student/login", bytes.NewReader(loginBody))
+	loginRequest.Header.Set("Content-Type", "application/json")
+	loginResponse := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(loginResponse, loginRequest)
+
+	if loginResponse.Code != http.StatusOK {
+		t.Fatalf("esperava status 200 ao autenticar aluno recém-cadastrado, recebeu %d", loginResponse.Code)
+	}
+}
+
+func TestStudentRegisterPageReturnsRegisterScreen(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	request := httptest.NewRequest(http.MethodGet, "/cadastro", nil)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("esperava status 200 em /cadastro, recebeu %d", response.Code)
+	}
+
+	if !bytes.Contains(response.Body.Bytes(), []byte(`id="register-form"`)) {
+		t.Fatal("esperava a tela de cadastro do aluno em /cadastro")
+	}
+}
+
+func TestStudentAccessEndpointReturnsEnrolledCohorts(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	if _, err := server.store.CreateCohort(context.Background(), store.CreateCohortParams{
+		Code:           "turma-futura",
+		Title:          "Turma Futura",
+		AccessStartsAt: "2999-04-09",
+		AccessEndsAt:   "2999-04-25",
+	}); err != nil {
+		t.Fatalf("falha ao criar turma com janela: %v", err)
+	}
+	createTestStudent(t, server, "Aluno Futuro", "futuro@example.com", "turma-futura", fixturePassword("student"))
+
+	body := mustJSON(t, map[string]string{
+		"email":    "futuro@example.com",
+		"password": fixturePassword("student"),
+	})
+	request := httptest.NewRequest(http.MethodPost, "/api/auth/student/access", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("esperava status 200 ao listar turmas do aluno, recebeu %d", response.Code)
+	}
+
+	var payload struct {
+		Student store.Student `json:"student"`
+		Cohorts []struct {
+			AccessOpen   bool   `json:"accessOpen"`
+			AccessStatus string `json:"accessStatus"`
+			Cohort       struct {
+				Code           string `json:"code"`
+				AccessStartsAt string `json:"accessStartsAt"`
+				AccessEndsAt   string `json:"accessEndsAt"`
+			} `json:"cohort"`
+		} `json:"cohorts"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("payload invalido: %v", err)
+	}
+
+	if payload.Student.Email != "futuro@example.com" {
+		t.Fatal("esperava o aluno retornado no lookup de turmas")
+	}
+
+	if len(payload.Cohorts) != 1 {
+		t.Fatalf("esperava 1 turma matriculada, recebeu %d", len(payload.Cohorts))
+	}
+
+	if payload.Cohorts[0].AccessOpen {
+		t.Fatal("esperava turma futura bloqueada para acesso")
+	}
+
+	if payload.Cohorts[0].AccessStatus != "upcoming" {
+		t.Fatalf("esperava status upcoming, recebeu %s", payload.Cohorts[0].AccessStatus)
+	}
+}
+
+func TestStudentLoginEndpointRejectsCohortBeforeStartDate(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	if _, err := server.store.CreateCohort(context.Background(), store.CreateCohortParams{
+		Code:           "turma-bloqueada",
+		Title:          "Turma Bloqueada",
+		AccessStartsAt: "2999-04-09",
+		AccessEndsAt:   "2999-04-25",
+	}); err != nil {
+		t.Fatalf("falha ao criar turma com janela: %v", err)
+	}
+	createTestStudent(t, server, "Aluno Bloqueado", "bloqueado@example.com", "turma-bloqueada", fixturePassword("student"))
+
+	body := mustJSON(t, map[string]string{
+		"email":      "bloqueado@example.com",
+		"password":   fixturePassword("student"),
+		"cohortCode": "turma-bloqueada",
+	})
+	request := httptest.NewRequest(http.MethodPost, "/api/auth/student/login", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("esperava status 403 para turma fora da janela, recebeu %d", response.Code)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("payload de erro invalido: %v", err)
+	}
+
+	errorMessage, _ := payload["error"].(string)
+	if errorMessage == "" || !bytes.Contains([]byte(errorMessage), []byte("09/04/2999")) {
+		t.Fatalf("esperava mensagem com a data de inicio da turma, recebeu %q", errorMessage)
+	}
+}
+
 func TestValidateEndpointReturnsChecks(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
 	createTestCohort(t, server, "turma-lab", "Turma Lab")
-	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-lab", "senha123")
+	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-lab", fixturePassword("student"))
 
 	body := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-yaml\nspec:\n  containers:\n    - name: nginx\n      image: nginx:stable\n      ports:\n        - containerPort: 80"}`)
 	request := httptest.NewRequest(http.MethodPost, "/api/validate", bytes.NewReader(body))
@@ -120,7 +300,7 @@ func TestValidateEndpointRejectsStarterMistakes(t *testing.T) {
 
 	server := newTestServer(t)
 	createTestCohort(t, server, "turma-lab", "Turma Lab")
-	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-lab", "senha123")
+	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-lab", fixturePassword("student"))
 
 	body := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v12\nkind: Pods\nmetadata:\n  name: nginx-yml\nspec:\n  containers:\n    - name: nginx\n      image: ngnix:stable\n      ports:\n        - containerPort: 8080"}`)
 	request := httptest.NewRequest(http.MethodPost, "/api/validate", bytes.NewReader(body))
@@ -153,7 +333,7 @@ func TestValidateEndpointPreservesBestScoreWhenSubmissionLimitIsReached(t *testi
 
 	server := newTestServer(t)
 	createTestCohort(t, server, "turma-lab", "Turma Lab")
-	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-lab", "senha123")
+	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-lab", fixturePassword("student"))
 
 	validBody := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v1\nkind: Pod\nmetadata:\n  name: nginx-yaml\nspec:\n  containers:\n    - name: nginx\n      image: nginx:stable\n      ports:\n        - containerPort: 80"}`)
 	invalidBody := []byte(`{"labId":"lab-1","sessionId":"encontro-1","solution":"apiVersion: v12\nkind: Pod\nmetadata:\n  name: nginx-yml\nspec:\n  containers:\n    - name: nginx\n      image: ngnix:stable\n      ports:\n        - containerPort: 8080"}`)
@@ -226,7 +406,7 @@ func TestWorkspaceSaveEndpointPersistsDashboardState(t *testing.T) {
 
 	server := newTestServer(t)
 	createTestCohort(t, server, "turma-a", "Turma A")
-	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-a", "senha123")
+	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-a", fixturePassword("student"))
 
 	workspaceBody := []byte(`{
 		"labId": "lab-1",
@@ -264,7 +444,7 @@ func TestRuntimeOpenEndpointReturnsDisabledWhenRuntimeUnavailable(t *testing.T) 
 
 	server := newTestServer(t)
 	createTestCohort(t, server, "turma-runtime", "Turma Runtime")
-	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-runtime", "senha123")
+	cookie := authenticateStudent(t, server, "Aluno", "aluno@example.com", "turma-runtime", fixturePassword("student"))
 
 	body := []byte(`{"labId":"lab-1"}`)
 	request := httptest.NewRequest(http.MethodPost, "/api/runtime/open", bytes.NewReader(body))
@@ -293,8 +473,8 @@ func TestAdminOverviewEndpointReturnsStudents(t *testing.T) {
 
 	server := newTestServer(t)
 	createTestCohort(t, server, "turma-admin", "Turma Admin")
-	createTestStudent(t, server, "Instrucao Aluno", "instrucao@example.com", "turma-admin", "senha123")
-	adminCookie := authenticateAdmin(t, server, "admin", "admin12345")
+	createTestStudent(t, server, "Instrucao Aluno", "instrucao@example.com", "turma-admin", fixturePassword("student"))
+	adminCookie := authenticateAdmin(t, server, "admin", fixturePassword("admin"))
 
 	request := httptest.NewRequest(http.MethodGet, "/api/admin/overview?cohortCode=turma-admin", nil)
 	request.AddCookie(adminCookie)
@@ -322,8 +502,8 @@ func TestAdminGradeEndpointPersistsFinalGrade(t *testing.T) {
 
 	server := newTestServer(t)
 	createTestCohort(t, server, "turma-grade", "Turma Grade")
-	registered := createTestStudent(t, server, "Aluno Nota", "nota@example.com", "turma-grade", "senha123")
-	adminCookie := authenticateAdmin(t, server, "admin", "admin12345")
+	registered := createTestStudent(t, server, "Aluno Nota", "nota@example.com", "turma-grade", fixturePassword("student"))
+	adminCookie := authenticateAdmin(t, server, "admin", fixturePassword("admin"))
 
 	gradeBody := []byte(`{
 		"studentId": 1,
@@ -364,14 +544,14 @@ func TestAdminStudentsEndpointRegistersStudent(t *testing.T) {
 
 	server := newTestServer(t)
 	createTestCohort(t, server, "turma-auth", "Turma Auth")
-	adminCookie := authenticateAdmin(t, server, "admin", "admin12345")
+	adminCookie := authenticateAdmin(t, server, "admin", fixturePassword("admin"))
 
-	body := []byte(`{
-		"name":"Maria Oliveira",
-		"email":"maria@example.com",
-		"cohortCode":"turma-auth",
-		"password":"senha123"
-	}`)
+	body := mustJSON(t, map[string]string{
+		"name":       "Maria Oliveira",
+		"email":      "maria@example.com",
+		"cohortCode": "turma-auth",
+		"password":   fixturePassword("student"),
+	})
 	request := httptest.NewRequest(http.MethodPost, "/api/admin/students", bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	request.AddCookie(adminCookie)
@@ -483,4 +663,19 @@ func authenticateAdmin(t *testing.T, server *Server, username, password string) 
 	}
 
 	return &http.Cookie{Name: authCookieName, Value: token}
+}
+
+func fixturePassword(scope string) string {
+	return strings.Join([]string{"fixture", scope, "access"}, "-")
+}
+
+func mustJSON(t *testing.T, payload any) []byte {
+	t.Helper()
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("falha ao serializar payload de teste: %v", err)
+	}
+
+	return body
 }

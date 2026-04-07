@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cadastro do Aluno | KubeClass Web Lab</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="gate-active">
+    <div class="backdrop backdrop-one"></div>
+    <div class="backdrop backdrop-two"></div>
+    <div class="toast-stack" id="register-alerts" aria-live="polite" aria-atomic="true"></div>
+
+    <section class="gate-screen">
+      <div class="gate-shell">
+        <div class="gate-copy">
+          <p class="eyebrow">Cadastro acadêmico</p>
+          <h1>Crie seu acesso</h1>
+          <p class="hero-text">
+            Preencha seus dados, informe o código da turma e crie a senha que será usada
+            para entrar na plataforma. O código precisa ter sido compartilhado pelo instrutor.
+          </p>
+
+          <div class="hero-actions">
+            <a class="ghost-button link-button" href="/">Voltar ao login</a>
+            <a class="ghost-button link-button" href="/admin">Abrir painel admin</a>
+          </div>
+
+          <div class="gate-stats">
+            <article class="hero-stat">
+              <span class="hero-label">Você precisa</span>
+              <strong>Nome, e-mail, senha e código da turma</strong>
+            </article>
+            <article class="hero-stat">
+              <span class="hero-label">Validação</span>
+              <strong>O código da turma precisa existir no ambiente</strong>
+            </article>
+            <article class="hero-stat">
+              <span class="hero-label">Próximo passo</span>
+              <strong>Após o cadastro você volta direto para o login</strong>
+            </article>
+          </div>
+        </div>
+
+        <div class="gate-card-stack">
+          <form class="gate-card" id="register-form" novalidate>
+            <div class="panel-header">
+              <p class="eyebrow">Novo aluno</p>
+              <h2>Cadastrar acesso</h2>
+            </div>
+
+            <p class="gate-lead">
+              O cadastro cria apenas o acesso do aluno. A turma continua sendo controlada
+              pelo instrutor no painel administrativo.
+            </p>
+
+            <div class="field-grid">
+              <label class="field-group">
+                <span>Nome completo</span>
+                <input
+                  id="register-name"
+                  name="name"
+                  type="text"
+                  placeholder="Ex.: Maria Oliveira"
+                  autocomplete="name"
+                  required
+                />
+              </label>
+
+              <label class="field-group">
+                <span>E-mail</span>
+                <input
+                  id="register-email"
+                  name="email"
+                  type="email"
+                  placeholder="seu.email@exemplo.com"
+                  autocomplete="email"
+                  required
+                />
+              </label>
+            </div>
+
+            <label class="field-group">
+              <span>Código da turma</span>
+              <input
+                id="register-cohort"
+                name="cohortCode"
+                type="text"
+                placeholder="Ex.: k8s-mar-2026"
+                autocomplete="off"
+                required
+              />
+            </label>
+
+            <div class="field-grid">
+              <label class="field-group">
+                <span>Senha</span>
+                <input
+                  id="register-password"
+                  name="password"
+                  type="password"
+                  placeholder="Pelo menos 6 caracteres"
+                  autocomplete="new-password"
+                  required
+                />
+              </label>
+
+              <label class="field-group">
+                <span>Confirmar senha</span>
+                <input
+                  id="register-password-confirm"
+                  name="passwordConfirm"
+                  type="password"
+                  placeholder="Repita a senha"
+                  autocomplete="new-password"
+                  required
+                />
+              </label>
+            </div>
+
+            <button class="primary-button wide" id="register-submit-button" type="submit">
+              Criar cadastro
+            </button>
+
+            <p class="status-text muted" id="register-status">
+              Informe seus dados e o código da turma para criar o acesso acadêmico.
+            </p>
+
+            <p class="gate-switch">
+              Já tem cadastro? <a href="/">Entrar no ambiente</a>
+            </p>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <script src="/register.js"></script>
+  </body>
+</html>

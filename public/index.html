@@ -18,11 +18,13 @@
           <p class="eyebrow">Ambiente prático de orquestração</p>
           <h1>KubeClass Web Lab</h1>
           <p class="hero-text" id="gate-description">
-            Entre com as credenciais já cadastradas pelo instrutor para liberar o
-            ambiente de pratica, o workspace declarativo e a trilha completa da disciplina.
+            Entre com seu acesso acadêmico ou abra a página de cadastro para criar
+            sua conta antes de liberar o ambiente de pratica, o workspace declarativo
+            e a trilha completa da disciplina.
           </p>
 
           <div class="hero-actions">
+            <a class="ghost-button link-button" href="/cadastro">Criar cadastro</a>
             <a class="ghost-button link-button" href="/admin">Abrir painel admin</a>
           </div>
 
@@ -49,8 +51,8 @@
           </div>
 
           <p class="gate-lead">
-            Somente alunos cadastrados pelo instrutor e vinculados a uma turma valida
-            conseguem abrir o ambiente pratico.
+            Use o e-mail e a senha para entrar. Se ainda não tiver
+            acesso, faça seu cadastro com o código compartilhado pelo instrutor.
           </p>
 
           <div class="field-grid">
@@ -79,23 +81,24 @@
             </label>
           </div>
 
-          <label class="field-group">
-            <span>Código da turma</span>
-            <input
-              id="access-cohort"
-              name="cohortCode"
-              type="text"
-              placeholder="Ex.: k8s-mar-2026"
-              autocomplete="off"
-              required
-            />
-          </label>
-
           <button class="primary-button wide" id="access-submit-button" type="submit">
-            Entrar no ambiente
+            Ver turmas disponíveis
           </button>
           <p class="status-text muted" id="access-status">
-            Use e-mail, senha e código da turma para entrar no ambiente prático.
+            Use e-mail e senha para localizar suas turmas e entrar apenas nas que estiverem abertas.
+          </p>
+          <section class="access-cohort-panel" id="access-cohort-panel" hidden>
+            <div class="panel-header compact">
+              <p class="eyebrow">Turmas matriculadas</p>
+              <h2>Escolha onde entrar</h2>
+            </div>
+            <p class="gate-lead" id="access-cohort-copy">
+              Valide suas credenciais para listar as turmas vinculadas a este aluno.
+            </p>
+            <div class="access-cohort-list" id="access-cohort-list"></div>
+          </section>
+          <p class="gate-switch">
+            Ainda não tem acesso? <a href="/cadastro">Criar cadastro do aluno</a>
           </p>
         </form>
       </div>

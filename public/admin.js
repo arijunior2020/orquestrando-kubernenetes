@@ -51,6 +51,8 @@ const elements = {
   cohortForm: document.querySelector("#admin-cohort-form"),
   cohortCode: document.querySelector("#admin-cohort-code"),
   cohortTitle: document.querySelector("#admin-cohort-title"),
+  cohortStart: document.querySelector("#admin-cohort-start"),
+  cohortEnd: document.querySelector("#admin-cohort-end"),
   cohortSubmit: document.querySelector("#admin-cohort-submit"),
   cohortCancel: document.querySelector("#admin-cohort-cancel"),
   cohortStatus: document.querySelector("#admin-cohort-status"),
@@ -165,6 +167,27 @@ const formatTimestamp = (value) => {
     dateStyle: "short",
     timeStyle: "short",
   }).format(date);
+};
+
+const formatDateOnly = (value) => {
+  if (!value) {
+    return "sem data definida";
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+  }).format(date);
+};
+
+const formatCohortWindow = (cohort) => {
+  const start = formatDateOnly(cohort?.accessStartsAt);
+  const end = formatDateOnly(cohort?.accessEndsAt);
+  return `Acesso: ${start} até ${end}`;
 };
 
 const formatGrade = (value) => {
@@ -432,7 +455,7 @@ const openCohortEditModal = async (cohort) =>
   openAdminModal({
     eyebrow: "Editar turma",
     title: cohort.title,
-    copy: "Atualize o código e o título da turma. O novo código passa a ser exigido na entrada do aluno.",
+    copy: "Atualize o código, o título e a janela de acesso da turma. Apenas turmas abertas poderão ser acessadas pelos alunos.",
     bodyHTML: `
       <div class="modal-field-grid">
         <label class="field-group">
@@ -443,6 +466,14 @@ const openCohortEditModal = async (cohort) =>
           <span>Título da turma</span>
           <input id="modal-cohort-title" type="text" value="${escapeHtml(cohort.title)}" autocomplete="off" />
         </label>
+        <label class="field-group">
+          <span>Início do acesso</span>
+          <input id="modal-cohort-start" type="date" value="${escapeHtml(cohort.accessStartsAt || "")}" />
+        </label>
+        <label class="field-group">
+          <span>Fim do acesso</span>
+          <input id="modal-cohort-end" type="date" value="${escapeHtml(cohort.accessEndsAt || "")}" />
+        </label>
       </div>
     `,
     confirmLabel: "Salvar alterações",
@@ -450,6 +481,8 @@ const openCohortEditModal = async (cohort) =>
     onSubmit: async () => {
       const codeInput = elements.modal.querySelector("#modal-cohort-code");
       const titleInput = elements.modal.querySelector("#modal-cohort-title");
+      const startInput = elements.modal.querySelector("#modal-cohort-start");
+      const endInput = elements.modal.querySelector("#modal-cohort-end");
       const requiredMessage = buildRequiredMessage([
         [codeInput, "codigo da turma"],
         [titleInput, "titulo da turma"],
@@ -467,6 +500,8 @@ const openCohortEditModal = async (cohort) =>
           currentCode: cohort.code,
           code: codeInput.value.trim(),
           title: titleInput.value.trim(),
+          accessStartsAt: startInput.value,
+          accessEndsAt: endInput.value,
         }),
       });
 
@@ -781,7 +816,7 @@ const renderOverviewHeader = (students) => {
     ? `${selectedCohort.title}`
     : "Todas as turmas";
   elements.selectedCohortCopy.textContent = selectedCohort
-    ? `Acompanhamento administrativo da turma ${selectedCohort.code.toUpperCase()}.`
+    ? `Acompanhamento administrativo da turma ${selectedCohort.code.toUpperCase()}. ${formatCohortWindow(selectedCohort)}.`
     : "Visao consolidada de todas as turmas cadastradas na plataforma.";
 
   const readiness = students.length === 0 ? 0 : Math.round((completed / students.length) * 100);
@@ -879,7 +914,7 @@ const renderCohortManageList = () => {
         <article class="admin-manage-item">
           <div>
             <strong>${escapeHtml(cohort.title)}</strong>
-            <p>${escapeHtml(cohort.code.toUpperCase())} • ${cohort.studentCount} aluno(s)</p>
+            <p>${escapeHtml(cohort.code.toUpperCase())} • ${cohort.studentCount} aluno(s) • ${escapeHtml(formatCohortWindow(cohort))}</p>
           </div>
           <div class="admin-inline-actions">
             <button class="ghost-button button-compact" data-cohort-edit="${escapeHtml(cohort.code)}" type="button">
@@ -1613,6 +1648,8 @@ const attachEventListeners = () => {
 
     const code = elements.cohortCode.value.trim();
     const title = elements.cohortTitle.value.trim();
+    const accessStartsAt = elements.cohortStart.value;
+    const accessEndsAt = elements.cohortEnd.value;
     const requiredMessage = buildRequiredMessage([
       [elements.cohortCode, "codigo da turma"],
       [elements.cohortTitle, "titulo da turma"],
@@ -1633,6 +1670,8 @@ const attachEventListeners = () => {
         body: JSON.stringify({
           code,
           title,
+          accessStartsAt,
+          accessEndsAt,
         }),
       });
 

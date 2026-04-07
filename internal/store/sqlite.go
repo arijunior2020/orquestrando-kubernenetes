@@ -9,11 +9,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const retiredChallengeLabID = "challenge-final"
+const (
+	retiredChallengeLabID = "challenge-final"
+	cohortDateLayout      = "2006-01-02"
+)
 
 type SQLiteStore struct {
 	db *sql.DB
@@ -26,9 +30,11 @@ type Student struct {
 }
 
 type Cohort struct {
-	ID    int64  `json:"id"`
-	Code  string `json:"code"`
-	Title string `json:"title"`
+	ID             int64  `json:"id"`
+	Code           string `json:"code"`
+	Title          string `json:"title"`
+	AccessStartsAt string `json:"accessStartsAt,omitempty"`
+	AccessEndsAt   string `json:"accessEndsAt,omitempty"`
 }
 
 type Workspace struct {
@@ -88,10 +94,12 @@ type SubmissionStatus struct {
 var ErrSubmissionLimitReached = errors.New("limite de 3 tentativas de entrega atingido")
 
 type AdminCohortSummary struct {
-	ID           int64  `json:"id"`
-	Code         string `json:"code"`
-	Title        string `json:"title"`
-	StudentCount int    `json:"studentCount"`
+	ID             int64  `json:"id"`
+	Code           string `json:"code"`
+	Title          string `json:"title"`
+	AccessStartsAt string `json:"accessStartsAt,omitempty"`
+	AccessEndsAt   string `json:"accessEndsAt,omitempty"`
+	StudentCount   int    `json:"studentCount"`
 }
 
 type AdminStudentSummary struct {
@@ -144,14 +152,18 @@ type GradeParams struct {
 }
 
 type CreateCohortParams struct {
-	Code  string
-	Title string
+	Code           string
+	Title          string
+	AccessStartsAt string
+	AccessEndsAt   string
 }
 
 type UpdateCohortParams struct {
-	CurrentCode string
-	Code        string
-	Title       string
+	CurrentCode    string
+	Code           string
+	Title          string
+	AccessStartsAt string
+	AccessEndsAt   string
 }
 
 func NewSQLiteStore(path string) (*SQLiteStore, error) {
@@ -184,6 +196,8 @@ CREATE TABLE IF NOT EXISTS cohorts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   code TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL,
+  access_starts_at TEXT NOT NULL DEFAULT '',
+  access_ends_at TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -269,8 +283,36 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
 		return err
 	}
 
+	if err := s.ensureCohortColumns(); err != nil {
+		return err
+	}
+
 	if err := s.ensureEnrollmentColumns(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *SQLiteStore) ensureCohortColumns() error {
+	columns, err := s.tableColumns("cohorts")
+	if err != nil {
+		return fmt.Errorf("falha ao listar colunas de cohorts: %w", err)
+	}
+
+	definitions := map[string]string{
+		"access_starts_at": "ALTER TABLE cohorts ADD COLUMN access_starts_at TEXT NOT NULL DEFAULT ''",
+		"access_ends_at":   "ALTER TABLE cohorts ADD COLUMN access_ends_at TEXT NOT NULL DEFAULT ''",
+	}
+
+	for column, statement := range definitions {
+		if columns[column] {
+			continue
+		}
+
+		if _, err := s.db.Exec(statement); err != nil {
+			return fmt.Errorf("falha ao criar coluna %s em cohorts: %w", column, err)
+		}
 	}
 
 	return nil
@@ -401,23 +443,63 @@ func (s *SQLiteStore) UpsertSession(ctx context.Context, params SessionUpsertPar
 	return s.LoadDashboard(ctx, studentID)
 }
 
+func normalizeCohortDate(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	parsed, err := time.Parse(cohortDateLayout, trimmed)
+	if err != nil {
+		return "", fmt.Errorf("use datas no formato AAAA-MM-DD")
+	}
+
+	return parsed.Format(cohortDateLayout), nil
+}
+
+func normalizeCohortWindow(startsAt, endsAt string) (string, string, error) {
+	normalizedStart, err := normalizeCohortDate(startsAt)
+	if err != nil {
+		return "", "", fmt.Errorf("data inicial invalida: %w", err)
+	}
+
+	normalizedEnd, err := normalizeCohortDate(endsAt)
+	if err != nil {
+		return "", "", fmt.Errorf("data final invalida: %w", err)
+	}
+
+	if normalizedStart != "" && normalizedEnd != "" && normalizedEnd < normalizedStart {
+		return "", "", fmt.Errorf("a data final da turma deve ser igual ou posterior a data inicial")
+	}
+
+	return normalizedStart, normalizedEnd, nil
+}
+
 func (s *SQLiteStore) CreateCohort(ctx context.Context, params CreateCohortParams) (Cohort, error) {
 	code := strings.ToLower(strings.TrimSpace(params.Code))
 	title := strings.TrimSpace(params.Title)
+	accessStartsAt, accessEndsAt, err := normalizeCohortWindow(params.AccessStartsAt, params.AccessEndsAt)
 
 	if code == "" || title == "" {
 		return Cohort{}, fmt.Errorf("codigo e titulo da turma sao obrigatorios")
 	}
+	if err != nil {
+		return Cohort{}, err
+	}
 
 	if _, err := s.db.ExecContext(
 		ctx,
-		`INSERT INTO cohorts (code, title)
-		 VALUES (?, ?)
+		`INSERT INTO cohorts (code, title, access_starts_at, access_ends_at)
+		 VALUES (?, ?, ?, ?)
 		 ON CONFLICT(code) DO UPDATE SET
 		   title = excluded.title,
+		   access_starts_at = excluded.access_starts_at,
+		   access_ends_at = excluded.access_ends_at,
 		   updated_at = CURRENT_TIMESTAMP`,
 		code,
 		title,
+		accessStartsAt,
+		accessEndsAt,
 	); err != nil {
 		return Cohort{}, fmt.Errorf("falha ao salvar turma: %w", err)
 	}
@@ -425,9 +507,9 @@ func (s *SQLiteStore) CreateCohort(ctx context.Context, params CreateCohortParam
 	var cohort Cohort
 	if err := s.db.QueryRowContext(
 		ctx,
-		`SELECT id, code, title FROM cohorts WHERE code = ?`,
+		`SELECT id, code, title, access_starts_at, access_ends_at FROM cohorts WHERE code = ?`,
 		code,
-	).Scan(&cohort.ID, &cohort.Code, &cohort.Title); err != nil {
+	).Scan(&cohort.ID, &cohort.Code, &cohort.Title, &cohort.AccessStartsAt, &cohort.AccessEndsAt); err != nil {
 		return Cohort{}, fmt.Errorf("falha ao carregar turma salva: %w", err)
 	}
 
@@ -438,18 +520,24 @@ func (s *SQLiteStore) UpdateCohort(ctx context.Context, params UpdateCohortParam
 	currentCode := strings.ToLower(strings.TrimSpace(params.CurrentCode))
 	code := strings.ToLower(strings.TrimSpace(params.Code))
 	title := strings.TrimSpace(params.Title)
+	accessStartsAt, accessEndsAt, err := normalizeCohortWindow(params.AccessStartsAt, params.AccessEndsAt)
 
 	if currentCode == "" || code == "" || title == "" {
 		return Cohort{}, fmt.Errorf("codigo atual, codigo novo e titulo da turma sao obrigatorios")
+	}
+	if err != nil {
+		return Cohort{}, err
 	}
 
 	result, err := s.db.ExecContext(
 		ctx,
 		`UPDATE cohorts
-		 SET code = ?, title = ?, updated_at = CURRENT_TIMESTAMP
+		 SET code = ?, title = ?, access_starts_at = ?, access_ends_at = ?, updated_at = CURRENT_TIMESTAMP
 		 WHERE code = ?`,
 		code,
 		title,
+		accessStartsAt,
+		accessEndsAt,
 		currentCode,
 	)
 	if err != nil {
@@ -467,9 +555,9 @@ func (s *SQLiteStore) UpdateCohort(ctx context.Context, params UpdateCohortParam
 	var cohort Cohort
 	if err := s.db.QueryRowContext(
 		ctx,
-		`SELECT id, code, title FROM cohorts WHERE code = ?`,
+		`SELECT id, code, title, access_starts_at, access_ends_at FROM cohorts WHERE code = ?`,
 		code,
-	).Scan(&cohort.ID, &cohort.Code, &cohort.Title); err != nil {
+	).Scan(&cohort.ID, &cohort.Code, &cohort.Title, &cohort.AccessStartsAt, &cohort.AccessEndsAt); err != nil {
 		return Cohort{}, fmt.Errorf("falha ao recarregar turma atualizada: %w", err)
 	}
 
@@ -527,7 +615,9 @@ func (s *SQLiteStore) LoadDashboard(ctx context.Context, studentID int64) (Dashb
 			s.email,
 			COALESCE(c.id, 0),
 			COALESCE(c.code, ''),
-			COALESCE(c.title, '')
+			COALESCE(c.title, ''),
+			COALESCE(c.access_starts_at, ''),
+			COALESCE(c.access_ends_at, '')
 		FROM students s
 		LEFT JOIN enrollments e ON e.student_id = s.id
 		LEFT JOIN cohorts c ON c.id = e.cohort_id
@@ -544,6 +634,8 @@ func (s *SQLiteStore) LoadDashboard(ctx context.Context, studentID int64) (Dashb
 		&dashboard.Cohort.ID,
 		&dashboard.Cohort.Code,
 		&dashboard.Cohort.Title,
+		&dashboard.Cohort.AccessStartsAt,
+		&dashboard.Cohort.AccessEndsAt,
 	); err != nil {
 		if err == sql.ErrNoRows {
 			return Dashboard{}, fmt.Errorf("aluno nao encontrado")
@@ -824,10 +916,10 @@ func (s *SQLiteStore) LoadAdminOverview(ctx context.Context, cohortCode string) 
 
 	cohortRows, err := s.db.QueryContext(
 		ctx,
-		`SELECT c.id, c.code, c.title, COUNT(e.student_id)
+		`SELECT c.id, c.code, c.title, c.access_starts_at, c.access_ends_at, COUNT(e.student_id)
 		 FROM cohorts c
 		 LEFT JOIN enrollments e ON e.cohort_id = c.id
-		 GROUP BY c.id, c.code, c.title
+		 GROUP BY c.id, c.code, c.title, c.access_starts_at, c.access_ends_at
 		 ORDER BY c.code ASC`,
 	)
 	if err != nil {
@@ -837,12 +929,25 @@ func (s *SQLiteStore) LoadAdminOverview(ctx context.Context, cohortCode string) 
 
 	for cohortRows.Next() {
 		var cohort AdminCohortSummary
-		if err := cohortRows.Scan(&cohort.ID, &cohort.Code, &cohort.Title, &cohort.StudentCount); err != nil {
+		if err := cohortRows.Scan(
+			&cohort.ID,
+			&cohort.Code,
+			&cohort.Title,
+			&cohort.AccessStartsAt,
+			&cohort.AccessEndsAt,
+			&cohort.StudentCount,
+		); err != nil {
 			return overview, fmt.Errorf("falha ao ler turma: %w", err)
 		}
 		overview.Cohorts = append(overview.Cohorts, cohort)
 		if selectedCode != "" && cohort.Code == selectedCode {
-			overview.SelectedCohort = &Cohort{ID: cohort.ID, Code: cohort.Code, Title: cohort.Title}
+			overview.SelectedCohort = &Cohort{
+				ID:             cohort.ID,
+				Code:           cohort.Code,
+				Title:          cohort.Title,
+				AccessStartsAt: cohort.AccessStartsAt,
+				AccessEndsAt:   cohort.AccessEndsAt,
+			}
 		}
 	}
 
@@ -855,6 +960,8 @@ func (s *SQLiteStore) LoadAdminOverview(ctx context.Context, cohortCode string) 
 			c.id,
 			c.code,
 			c.title,
+			COALESCE(c.access_starts_at, ''),
+			COALESCE(c.access_ends_at, ''),
 			COALESCE(workspace_stats.validated_labs, 0),
 			COALESCE(task_stats.completed_tasks, 0),
 			COALESCE(submission_stats.submission_count, 0),
@@ -1120,6 +1227,8 @@ func (s *SQLiteStore) loadAdminStudentSummary(ctx context.Context, studentID int
 			c.id,
 			c.code,
 			c.title,
+			COALESCE(c.access_starts_at, ''),
+			COALESCE(c.access_ends_at, ''),
 			COALESCE(workspace_stats.validated_labs, 0),
 			COALESCE(task_stats.completed_tasks, 0),
 			COALESCE(submission_stats.submission_count, 0),
@@ -1204,6 +1313,8 @@ func scanAdminStudentSummary(scanner summaryScanner) (AdminStudentSummary, error
 		&summary.Cohort.ID,
 		&summary.Cohort.Code,
 		&summary.Cohort.Title,
+		&summary.Cohort.AccessStartsAt,
+		&summary.Cohort.AccessEndsAt,
 		&summary.ValidatedLabs,
 		&summary.CompletedTasks,
 		&summary.SubmissionCount,

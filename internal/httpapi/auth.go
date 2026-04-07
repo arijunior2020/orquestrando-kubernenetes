@@ -27,6 +27,18 @@ type studentLoginRequest struct {
 	CohortCode string `json:"cohortCode"`
 }
 
+type studentAccessRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type studentRegisterRequest struct {
+	Name       string `json:"name"`
+	Email      string `json:"email"`
+	CohortCode string `json:"cohortCode"`
+	Password   string `json:"password"`
+}
+
 type adminLoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -194,6 +206,34 @@ func (s *Server) handleAdminLogin(response http.ResponseWriter, request *http.Re
 	})
 }
 
+func (s *Server) handleStudentAccess(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodPost {
+		writeJSON(response, http.StatusMethodNotAllowed, map[string]string{"error": "metodo nao permitido"})
+		return
+	}
+
+	var payload studentAccessRequest
+	if err := decodeJSONBody(response, request, &payload); err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	lookup, err := s.store.LoadStudentAccessLookup(request.Context(), store.StudentAccessLookupParams{
+		Email:    payload.Email,
+		Password: payload.Password,
+	})
+	if err != nil {
+		statusCode := http.StatusUnauthorized
+		if !errors.Is(err, store.ErrInvalidCredentials) {
+			statusCode = http.StatusBadRequest
+		}
+		writeJSON(response, statusCode, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(response, http.StatusOK, lookup)
+}
+
 func (s *Server) handleStudentLogin(response http.ResponseWriter, request *http.Request) {
 	if request.Method != http.MethodPost {
 		writeJSON(response, http.StatusMethodNotAllowed, map[string]string{"error": "metodo nao permitido"})
@@ -213,7 +253,10 @@ func (s *Server) handleStudentLogin(response http.ResponseWriter, request *http.
 	})
 	if err != nil {
 		statusCode := http.StatusUnauthorized
-		if !errors.Is(err, store.ErrInvalidCredentials) {
+		var accessErr *store.CohortAccessError
+		if errors.As(err, &accessErr) {
+			statusCode = http.StatusForbidden
+		} else if !errors.Is(err, store.ErrInvalidCredentials) {
 			statusCode = http.StatusBadRequest
 		}
 		writeJSON(response, statusCode, map[string]string{"error": err.Error()})
@@ -222,6 +265,32 @@ func (s *Server) handleStudentLogin(response http.ResponseWriter, request *http.
 
 	s.setSessionCookie(response, request, token)
 	writeJSON(response, http.StatusOK, dashboard)
+}
+
+func (s *Server) handleStudentRegister(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodPost {
+		writeJSON(response, http.StatusMethodNotAllowed, map[string]string{"error": "metodo nao permitido"})
+		return
+	}
+
+	var payload studentRegisterRequest
+	if err := decodeJSONBody(response, request, &payload); err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	student, err := s.store.CreateStudent(request.Context(), store.CreateStudentParams{
+		Name:       payload.Name,
+		Email:      payload.Email,
+		CohortCode: payload.CohortCode,
+		Password:   payload.Password,
+	})
+	if err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(response, http.StatusCreated, student)
 }
 
 func (s *Server) handleLogout(response http.ResponseWriter, request *http.Request) {
