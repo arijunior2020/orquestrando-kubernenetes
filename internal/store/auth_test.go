@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -39,7 +40,7 @@ func TestLoadStudentAccessLookupReturnsCohortWindows(t *testing.T) {
 		Name:       "Aluno Lookup",
 		Email:      "lookup@example.com",
 		CohortCode: openCohort.Code,
-		Password:   "senha123",
+		Password:   fixturePassword("student"),
 	})
 	if err != nil {
 		t.Fatalf("falha ao criar aluno para lookup: %v", err)
@@ -56,7 +57,7 @@ func TestLoadStudentAccessLookupReturnsCohortWindows(t *testing.T) {
 
 	lookup, err := store.LoadStudentAccessLookup(context.Background(), StudentAccessLookupParams{
 		Email:    "lookup@example.com",
-		Password: "senha123",
+		Password: fixturePassword("student"),
 	})
 	if err != nil {
 		t.Fatalf("falha ao carregar turmas do aluno: %v", err)
@@ -105,14 +106,14 @@ func TestAuthenticateStudentBlocksClosedWindow(t *testing.T) {
 		Name:       "Aluno Bloqueado",
 		Email:      "bloqueado@example.com",
 		CohortCode: cohort.Code,
-		Password:   "senha123",
+		Password:   fixturePassword("student"),
 	}); err != nil {
 		t.Fatalf("falha ao criar aluno bloqueado: %v", err)
 	}
 
 	_, _, err = store.AuthenticateStudent(context.Background(), StudentLoginParams{
 		Email:      "bloqueado@example.com",
-		Password:   "senha123",
+		Password:   fixturePassword("student"),
 		CohortCode: cohort.Code,
 	})
 
@@ -120,4 +121,8 @@ func TestAuthenticateStudentBlocksClosedWindow(t *testing.T) {
 	if !errors.As(err, &accessErr) {
 		t.Fatalf("esperava erro de janela de acesso, recebeu %v", err)
 	}
+}
+
+func fixturePassword(scope string) string {
+	return strings.Join([]string{"fixture", scope, "access"}, "-")
 }

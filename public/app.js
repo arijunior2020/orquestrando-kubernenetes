@@ -124,7 +124,7 @@ const TERMINAL_GUIDES = {
       {
         title: "Criar o Secret com credenciais",
         command:
-          "kubectl create secret generic app-secret --from-literal=APP_USER=admin --from-literal=APP_PASSWORD=123456",
+          "kubectl create secret generic app-secret --from-literal=APP_USER=admin --from-literal=APP_PASSWORD=lab-placeholder",
         note: "Armazena os dados sensiveis da aplicacao em recurso dedicado.",
         taskIndexes: [1],
       },
@@ -167,7 +167,7 @@ const TERMINAL_GUIDES = {
       },
       {
         title: "Aplicar o StatefulSet do banco",
-        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: banco\nspec:\n  serviceName: banco\n  replicas: 1\n  selector:\n    matchLabels:\n      app: banco\n  template:\n    metadata:\n      labels:\n        app: banco\n    spec:\n      containers:\n        - name: mysql\n          image: mysql:5.7\n          env:\n            - name: MYSQL_ROOT_PASSWORD\n              value: \"123456\"\n          volumeMounts:\n            - name: dados\n              mountPath: /var/lib/mysql\n  volumeClaimTemplates:\n    - metadata:\n        name: dados\n      spec:\n        accessModes: [\"ReadWriteOnce\"]\n        resources:\n          requests:\n            storage: 5Gi\nEOF",
+        command: "cat <<'EOF' | kubectl apply -f -\napiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: banco\nspec:\n  serviceName: banco\n  replicas: 1\n  selector:\n    matchLabels:\n      app: banco\n  template:\n    metadata:\n      labels:\n        app: banco\n    spec:\n      containers:\n        - name: mysql\n          image: mysql:5.7\n          env:\n            - name: MYSQL_ROOT_PASSWORD\n              value: \"lab-placeholder\"\n          volumeMounts:\n            - name: dados\n              mountPath: /var/lib/mysql\n  volumeClaimTemplates:\n    - metadata:\n        name: dados\n      spec:\n        accessModes: [\"ReadWriteOnce\"]\n        resources:\n          requests:\n            storage: 5Gi\nEOF",
         note: "Entrega o componente stateful principal com persistencia declarativa.",
         taskIndexes: [1],
       },
