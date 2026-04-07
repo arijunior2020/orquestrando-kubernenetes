@@ -11,3 +11,4 @@ terraform.tfvars
 terraform.tfvars.json
 crash.log
 kubeclass-web-lab-pilot.tar.gz
+.codex
