@@ -197,48 +197,62 @@
 
       <section class="dashboard-strip admin-strip" id="admin-metric-strip"></section>
 
-      <nav class="admin-nav card nav nav-pills" id="admin-nav" aria-label="Seções do painel administrativo">
-        <a class="admin-nav-link nav-link" data-admin-route="overview" href="/admin/overview">Resumo</a>
-        <a class="admin-nav-link nav-link" data-admin-route="cohorts" href="/admin/cohorts">Turmas</a>
-        <a class="admin-nav-link nav-link" data-admin-route="students" href="/admin/students">Alunos</a>
-        <a class="admin-nav-link nav-link" data-admin-route="grading" href="/admin/grading">Notas</a>
-        <a class="admin-nav-link nav-link" data-admin-route="labs" href="/admin/labs">Labs</a>
-        <a class="admin-nav-link nav-link" data-admin-route="submissions" href="/admin/submissions">Evidências</a>
-      </nav>
+      <section class="admin-route-shell">
+        <nav class="admin-nav card nav nav-pills" id="admin-nav" aria-label="Seções do painel administrativo">
+          <div class="admin-nav-copy">
+            <p class="eyebrow">Navegação</p>
+            <strong>Seções do painel</strong>
+            <p class="hero-text compact">
+              Abra uma área por vez e mantenha o foco na operação que está executando.
+            </p>
+          </div>
 
-      <section class="card route-hero-card admin-route-hero-card" id="admin-route-hero">
-        <p class="eyebrow" id="admin-route-eyebrow">Resumo</p>
-        <h2 id="admin-route-title">Painel administrativo</h2>
-        <p class="hero-text compact" id="admin-route-copy">
-          Navegue por páginas específicas para gerenciar turmas, alunos, notas e evidências da disciplina.
-        </p>
-      </section>
+          <div class="admin-nav-links">
+            <a class="admin-nav-link nav-link" data-admin-route="overview" href="/admin/overview">Resumo</a>
+            <a class="admin-nav-link nav-link" data-admin-route="cohorts" href="/admin/cohorts">Turmas</a>
+            <a class="admin-nav-link nav-link" data-admin-route="students" href="/admin/students">Alunos</a>
+            <a class="admin-nav-link nav-link" data-admin-route="grading" href="/admin/grading">Notas</a>
+            <a class="admin-nav-link nav-link" data-admin-route="labs" href="/admin/labs">Labs</a>
+            <a class="admin-nav-link nav-link" data-admin-route="submissions" href="/admin/submissions">Evidências</a>
+          </div>
+        </nav>
 
-      <section class="card quickstart-card admin-quickstart-card">
-        <div class="quickstart-copy">
-          <p class="eyebrow">Fluxo operacional</p>
-          <h2>Configure, acompanhe e avalie</h2>
-          <p class="hero-text compact">
-            O painel fica mais previsível quando você segue sempre esta ordem: abrir a turma certa,
-            liberar acesso do aluno e só depois acompanhar labs, evidências e nota final.
-          </p>
-        </div>
-        <div class="quickstart-steps">
-          <article class="quickstart-step">
-            <span class="quickstart-index">01</span>
-            <strong>Escolha a turma</strong>
-            <p>Use o filtro superior para restringir a visão e evitar editar a turma errada.</p>
-          </article>
-          <article class="quickstart-step">
-            <span class="quickstart-index">02</span>
-            <strong>Cadastre o acesso</strong>
-            <p>Crie ou ajuste turma e aluno antes de cobrar atividade ou janela de abertura.</p>
-          </article>
-          <article class="quickstart-step">
-            <span class="quickstart-index">03</span>
-            <strong>Revise evidências</strong>
-            <p>Abra o detalhe do aluno para verificar labs, submissões, checklist e nota final.</p>
-          </article>
+        <div class="admin-route-stack">
+          <section class="card route-hero-card admin-route-hero-card" id="admin-route-hero">
+            <p class="eyebrow" id="admin-route-eyebrow">Resumo</p>
+            <h2 id="admin-route-title">Painel administrativo</h2>
+            <p class="hero-text compact" id="admin-route-copy">
+              Navegue por páginas específicas para gerenciar turmas, alunos, notas e evidências da disciplina.
+            </p>
+          </section>
+
+          <section class="card quickstart-card admin-quickstart-card">
+            <div class="quickstart-copy">
+              <p class="eyebrow">Fluxo operacional</p>
+              <h2>Configure, acompanhe e avalie</h2>
+              <p class="hero-text compact">
+                O painel fica mais previsível quando você segue sempre esta ordem: abrir a turma certa,
+                liberar acesso do aluno e só depois acompanhar labs, evidências e nota final.
+              </p>
+            </div>
+            <div class="quickstart-steps">
+              <article class="quickstart-step">
+                <span class="quickstart-index">01</span>
+                <strong>Escolha a turma</strong>
+                <p>Use o filtro superior para restringir a visão e evitar editar a turma errada.</p>
+              </article>
+              <article class="quickstart-step">
+                <span class="quickstart-index">02</span>
+                <strong>Cadastre o acesso</strong>
+                <p>Crie ou ajuste turma e aluno antes de cobrar atividade ou janela de abertura.</p>
+              </article>
+              <article class="quickstart-step">
+                <span class="quickstart-index">03</span>
+                <strong>Revise evidências</strong>
+                <p>Abra o detalhe do aluno para verificar labs, submissões, checklist e nota final.</p>
+              </article>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -538,8 +552,15 @@
       </div>
     </div>
 
-    <dialog class="modal-dialog" id="admin-modal">
-      <form class="modal-panel" id="admin-modal-form" method="dialog" novalidate>
+    <div
+      class="modal-dialog"
+      id="admin-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="admin-modal-title"
+      hidden
+    >
+      <form class="modal-panel" id="admin-modal-form" novalidate>
         <button
           class="modal-close ghost-button button-compact"
           id="admin-modal-close"
@@ -569,7 +590,7 @@
           </button>
         </div>
       </form>
-    </dialog>
+    </div>
     <script type="module" src="/admin.js"></script>
   </body>
 </html>
