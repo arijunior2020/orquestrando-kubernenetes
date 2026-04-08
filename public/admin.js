@@ -427,18 +427,27 @@ const setModalStatus = (message, tone = "muted") => {
   renderFeedback(elements.modalStatus, message, tone);
 };
 
+const isAdminModalOpen = () => !elements.modal.hidden;
+
+const setAdminModalVisibility = (visible) => {
+  elements.modal.hidden = !visible;
+  elements.modal.setAttribute("aria-hidden", visible ? "false" : "true");
+  document.body.classList.toggle("modal-open", visible);
+};
+
 const closeAdminModal = (result = null) => {
-  if (!elements.modal.open) {
+  if (!isAdminModalOpen()) {
     return;
   }
 
-  elements.modal.close();
+  setAdminModalVisibility(false);
   const resolver = state.modal.resolver;
   state.modal.resolver = null;
   state.modal.onSubmit = null;
   state.modal.submitLabel = "Confirmar";
   elements.modalBody.innerHTML = "";
   elements.modalConfirm.className = "primary-button";
+  elements.modalConfirm.disabled = false;
   elements.modalConfirm.textContent = "Confirmar";
   setModalStatus("Revise os dados e confirme para continuar.", "muted");
 
@@ -473,8 +482,8 @@ const openAdminModal = ({
     elements.modalConfirm.className = confirmClassName;
     setModalStatus(statusMessage, statusTone);
 
-    if (!elements.modal.open) {
-      elements.modal.showModal();
+    if (!isAdminModalOpen()) {
+      setAdminModalVisibility(true);
     }
 
     window.requestAnimationFrame(() => {
@@ -1451,7 +1460,11 @@ const attachEventListeners = () => {
       closeAdminModal(null);
     }
   });
-  elements.modal.addEventListener("cancel", (event) => {
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !isAdminModalOpen()) {
+      return;
+    }
+
     event.preventDefault();
     closeAdminModal(null);
   });
@@ -1478,7 +1491,7 @@ const attachEventListeners = () => {
         "danger",
       );
     } finally {
-      if (elements.modal.open) {
+      if (isAdminModalOpen()) {
         elements.modalConfirm.disabled = false;
         elements.modalConfirm.textContent = originalLabel;
       }
