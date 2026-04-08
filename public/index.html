@@ -5,9 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KubeClass Web Lab</title>
     <link rel="stylesheet" href="/vendor/xterm.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    />
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
+  <body class="bootstrap-layer">
     <div class="backdrop backdrop-one"></div>
     <div class="backdrop backdrop-two"></div>
     <div class="toast-stack" id="app-alerts" aria-live="polite" aria-atomic="true"></div>
@@ -59,6 +63,7 @@
             <label class="field-group">
               <span>E-mail</span>
               <input
+                class="form-control"
                 id="access-email"
                 name="email"
                 type="email"
@@ -71,6 +76,7 @@
             <label class="field-group">
               <span>Senha</span>
               <input
+                class="form-control"
                 id="access-password"
                 name="password"
                 type="password"
@@ -184,27 +190,55 @@
 
       <section class="dashboard-strip" id="dashboard-strip"></section>
       <section class="capability-strip" id="capability-strip"></section>
-      <nav class="app-nav card" id="student-nav" aria-label="Navegação do ambiente do aluno">
-        <a class="app-nav-link" data-app-route="overview" href="/app/overview">Visão geral</a>
-        <a class="app-nav-link" data-app-route="practice" href="/app/practice">Prática guiada</a>
-        <a class="app-nav-link" data-app-route="workspace" href="/app/workspace">Workspace</a>
+      <nav class="app-nav card nav nav-pills nav-fill" id="student-nav" aria-label="Navegação do ambiente do aluno">
+        <a class="app-nav-link nav-link" data-app-route="overview" href="/app/overview">Unidade</a>
+        <a class="app-nav-link nav-link" data-app-route="practice" href="/app/practice">Executar</a>
+        <a class="app-nav-link nav-link" data-app-route="workspace" href="/app/workspace">Entregar</a>
       </nav>
+
+      <section class="card quickstart-card student-quickstart-card">
+        <div class="quickstart-copy">
+          <p class="eyebrow">Fluxo rápido</p>
+          <h2>Entre, execute e entregue</h2>
+          <p class="hero-text compact">
+            A ordem segura da plataforma é simples: primeiro entenda a unidade, depois execute a prática
+            e só então consolide o YAML final para validação.
+          </p>
+        </div>
+        <div class="quickstart-steps">
+          <article class="quickstart-step">
+            <span class="quickstart-index">01</span>
+            <strong>Escolha a unidade</strong>
+            <p>Use a trilha lateral para abrir a unidade ativa e revisar o objetivo da aula.</p>
+          </article>
+          <article class="quickstart-step">
+            <span class="quickstart-index">02</span>
+            <strong>Execute a prática</strong>
+            <p>Use o terminal, o roteiro guiado ou o registro local conforme o modo da unidade.</p>
+          </article>
+          <article class="quickstart-step">
+            <span class="quickstart-index">03</span>
+            <strong>Entregue no YAML</strong>
+            <p>Consolide o manifesto final, salve o rascunho e valide os critérios antes de encerrar.</p>
+          </article>
+        </div>
+      </section>
 
       <div class="workspace-layout">
         <aside class="timeline-panel">
           <div class="panel-header">
             <p class="eyebrow">Trilha cronologica</p>
-            <h2>Encontros</h2>
+            <h2>Unidades</h2>
           </div>
           <div id="timeline"></div>
         </aside>
 
         <main class="content-panel">
           <section class="card route-hero-card student-route-hero-card" id="student-route-hero">
-            <p class="eyebrow" id="student-route-eyebrow">Visão geral</p>
+            <p class="eyebrow" id="student-route-eyebrow">Unidade</p>
             <h2 id="student-route-title">Página do aluno</h2>
             <p class="hero-text compact" id="student-route-copy">
-              Use o menu para alternar entre estudo, prática no terminal e workspace declarativo.
+              Use o menu para alternar entre entendimento da unidade, execução prática e entrega final.
             </p>
           </section>
 
@@ -224,8 +258,8 @@
           <section class="card studio-card" id="student-practice-studio" data-app-card="practice">
             <div class="studio-heading">
               <div>
-                <p class="eyebrow">Studio do laboratorio</p>
-                <h2>Execucao guiada da unidade</h2>
+                <p class="eyebrow">Execução da unidade</p>
+                <h2>Prática guiada sem ruído</h2>
               </div>
               <div class="studio-actions">
                 <span class="studio-pill">Runtime, local ou registro</span>
@@ -275,10 +309,10 @@
               </section>
 
               <aside class="runbook-panel">
-                <div class="panel-header compact">
-                  <p class="eyebrow">Roteiro de execucao</p>
-                  <h3>Passos guiados da unidade</h3>
-                </div>
+              <div class="panel-header compact">
+                <p class="eyebrow">Roteiro de execucao</p>
+                <h3>Próximos passos</h3>
+              </div>
 
                 <p class="runbook-intro" id="runbook-intro"></p>
                 <div id="command-list" class="command-list"></div>
@@ -315,10 +349,10 @@
 
           <section class="workspace-stack" id="student-workspace-stack" data-app-card="workspace">
             <section class="card editor-card">
-              <div class="panel-header">
-                <p class="eyebrow">Workspace declarativo</p>
-                <h2>Manifest editor</h2>
-              </div>
+            <div class="panel-header">
+              <p class="eyebrow">Workspace declarativo</p>
+              <h2>Entrega em YAML</h2>
+            </div>
 
               <div class="editor-topbar">
                 <p class="status-text muted" id="editor-status">
@@ -360,7 +394,7 @@
               <section class="card workflow-card">
                 <div class="panel-header">
                   <p class="eyebrow">Fluxo recomendado</p>
-                  <h2>Como usar a plataforma</h2>
+                  <h2>Ordem da entrega</h2>
                 </div>
                 <div class="workflow-list" id="workflow-steps"></div>
               </section>

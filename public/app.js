@@ -455,21 +455,21 @@ const elements = {
 const STUDENT_ROUTE_CONFIG = {
   overview: {
     path: "/app/overview",
-    eyebrow: "Visão geral",
-    title: "Mapa da unidade e preparação teorica",
-    copy: "Abra uma visao limpa da sessao atual, com foco pedagogico, entregaveis e checklist da unidade.",
+    eyebrow: "Unidade",
+    title: "Entenda a unidade antes de executar",
+    copy: "Abra o mapa da aula, confira foco, entregáveis e checklist para saber exatamente o que precisa ser feito.",
   },
   practice: {
     path: "/app/practice",
-    eyebrow: "Prática guiada",
-    title: "Execucao guiada da unidade",
-    copy: "Siga o roteiro da unidade usando runtime real, execucao local ou registro manual, conforme a proposta da pratica.",
+    eyebrow: "Executar",
+    title: "Execute a pratica com roteiro claro",
+    copy: "Siga a sequencia guiada usando runtime real, execucao local ou registro manual, conforme o modo da unidade.",
   },
   workspace: {
     path: "/app/workspace",
-    eyebrow: "Workspace",
-    title: "Entrega declarativa e validacao",
-    copy: "Consolide o aprendizado no manifesto YAML, valide criterios e registre a evidencia da unidade.",
+    eyebrow: "Entregar",
+    title: "Consolide e valide a entrega final",
+    copy: "Transforme a pratica em manifesto YAML, valide os criterios automaticos e registre a evidencia da unidade.",
   },
 };
 

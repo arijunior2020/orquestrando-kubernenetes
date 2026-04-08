@@ -4,9 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KubeClass Admin</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    />
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
+  <body class="bootstrap-layer">
     <div class="backdrop backdrop-one"></div>
     <div class="backdrop backdrop-two"></div>
     <div class="toast-stack" id="admin-alerts" aria-live="polite" aria-atomic="true"></div>
@@ -54,17 +58,17 @@
 
             <label class="field-group">
               <span>Usuário admin</span>
-              <input id="admin-bootstrap-username" type="text" autocomplete="username" required />
+              <input class="form-control" id="admin-bootstrap-username" type="text" autocomplete="username" required />
             </label>
 
             <label class="field-group">
               <span>Senha</span>
-              <input id="admin-bootstrap-password" type="password" autocomplete="new-password" required />
+              <input class="form-control" id="admin-bootstrap-password" type="password" autocomplete="new-password" required />
             </label>
 
             <label class="field-group">
               <span>Confirmar senha</span>
-              <input id="admin-bootstrap-confirm" type="password" autocomplete="new-password" required />
+              <input class="form-control" id="admin-bootstrap-confirm" type="password" autocomplete="new-password" required />
             </label>
 
             <button class="primary-button wide" id="admin-bootstrap-submit" type="submit">
@@ -87,12 +91,12 @@
 
             <label class="field-group">
               <span>Usuário</span>
-              <input id="admin-login-username" type="text" autocomplete="username" required />
+              <input class="form-control" id="admin-login-username" type="text" autocomplete="username" required />
             </label>
 
             <label class="field-group">
               <span>Senha</span>
-              <input id="admin-login-password" type="password" autocomplete="current-password" required />
+              <input class="form-control" id="admin-login-password" type="password" autocomplete="current-password" required />
             </label>
 
             <button class="primary-button wide" id="admin-login-submit" type="submit">
@@ -148,12 +152,13 @@
 
             <label class="field-group">
               <span>Turma</span>
-              <select id="admin-cohort-select"></select>
+              <select class="form-select" id="admin-cohort-select"></select>
             </label>
 
             <label class="field-group">
               <span>Buscar aluno</span>
               <input
+                class="form-control"
                 id="admin-search"
                 type="text"
                 placeholder="Filtrar por nome ou e-mail"
@@ -192,21 +197,49 @@
 
       <section class="dashboard-strip admin-strip" id="admin-metric-strip"></section>
 
-      <nav class="admin-nav card" id="admin-nav" aria-label="Seções do painel administrativo">
-        <a class="admin-nav-link" data-admin-route="overview" href="/admin/overview">Visão geral</a>
-        <a class="admin-nav-link" data-admin-route="cohorts" href="/admin/cohorts">Turmas</a>
-        <a class="admin-nav-link" data-admin-route="students" href="/admin/students">Alunos</a>
-        <a class="admin-nav-link" data-admin-route="grading" href="/admin/grading">Notas</a>
-        <a class="admin-nav-link" data-admin-route="labs" href="/admin/labs">Labs</a>
-        <a class="admin-nav-link" data-admin-route="submissions" href="/admin/submissions">Submissões</a>
+      <nav class="admin-nav card nav nav-pills nav-fill" id="admin-nav" aria-label="Seções do painel administrativo">
+        <a class="admin-nav-link nav-link" data-admin-route="overview" href="/admin/overview">Resumo</a>
+        <a class="admin-nav-link nav-link" data-admin-route="cohorts" href="/admin/cohorts">Turmas</a>
+        <a class="admin-nav-link nav-link" data-admin-route="students" href="/admin/students">Alunos</a>
+        <a class="admin-nav-link nav-link" data-admin-route="grading" href="/admin/grading">Notas</a>
+        <a class="admin-nav-link nav-link" data-admin-route="labs" href="/admin/labs">Labs</a>
+        <a class="admin-nav-link nav-link" data-admin-route="submissions" href="/admin/submissions">Evidências</a>
       </nav>
 
       <section class="card route-hero-card admin-route-hero-card" id="admin-route-hero">
-        <p class="eyebrow" id="admin-route-eyebrow">Visão geral</p>
+        <p class="eyebrow" id="admin-route-eyebrow">Resumo</p>
         <h2 id="admin-route-title">Painel administrativo</h2>
         <p class="hero-text compact" id="admin-route-copy">
           Navegue por páginas específicas para gerenciar turmas, alunos, notas e evidências da disciplina.
         </p>
+      </section>
+
+      <section class="card quickstart-card admin-quickstart-card">
+        <div class="quickstart-copy">
+          <p class="eyebrow">Fluxo operacional</p>
+          <h2>Configure, acompanhe e avalie</h2>
+          <p class="hero-text compact">
+            O painel fica mais previsível quando você segue sempre esta ordem: abrir a turma certa,
+            liberar acesso do aluno e só depois acompanhar labs, evidências e nota final.
+          </p>
+        </div>
+        <div class="quickstart-steps">
+          <article class="quickstart-step">
+            <span class="quickstart-index">01</span>
+            <strong>Escolha a turma</strong>
+            <p>Use o filtro superior para restringir a visão e evitar editar a turma errada.</p>
+          </article>
+          <article class="quickstart-step">
+            <span class="quickstart-index">02</span>
+            <strong>Cadastre o acesso</strong>
+            <p>Crie ou ajuste turma e aluno antes de cobrar atividade ou janela de abertura.</p>
+          </article>
+          <article class="quickstart-step">
+            <span class="quickstart-index">03</span>
+            <strong>Revise evidências</strong>
+            <p>Abra o detalhe do aluno para verificar labs, submissões, checklist e nota final.</p>
+          </article>
+        </div>
       </section>
 
       <section class="admin-management-grid" id="admin-management-grid">
@@ -239,6 +272,7 @@
             <label class="field-group">
               <span>Codigo da turma</span>
               <input
+                class="form-control"
                 id="admin-cohort-code"
                 type="text"
                 placeholder="Ex.: k8s-mar-2026"
@@ -249,6 +283,7 @@
             <label class="field-group">
               <span>Titulo da turma</span>
               <input
+                class="form-control"
                 id="admin-cohort-title"
                 type="text"
                 placeholder="Ex.: Orquestracao Kubernetes - Marco 2026"
@@ -259,12 +294,12 @@
             <div class="field-grid">
               <label class="field-group">
                 <span>Início do acesso</span>
-                <input id="admin-cohort-start" type="date" />
+                <input class="form-control" id="admin-cohort-start" type="date" />
               </label>
 
               <label class="field-group">
                 <span>Fim do acesso</span>
-                <input id="admin-cohort-end" type="date" />
+                <input class="form-control" id="admin-cohort-end" type="date" />
               </label>
             </div>
 
@@ -304,6 +339,7 @@
             <label class="field-group">
               <span>Nome do aluno</span>
               <input
+                class="form-control"
                 id="admin-student-name"
                 type="text"
                 placeholder="Ex.: Maria Oliveira"
@@ -314,6 +350,7 @@
             <label class="field-group">
               <span>E-mail do aluno</span>
               <input
+                class="form-control"
                 id="admin-student-email"
                 type="email"
                 placeholder="aluno@exemplo.com"
@@ -324,6 +361,7 @@
             <label class="field-group">
               <span>Código da turma</span>
               <input
+                class="form-control"
                 id="admin-student-cohort"
                 type="text"
                 placeholder="Ex.: k8s-mar-2026"
@@ -334,6 +372,7 @@
             <label class="field-group">
               <span>Senha inicial</span>
               <input
+                class="form-control"
                 id="admin-student-password"
                 type="password"
                 placeholder="Minimo de 6 caracteres"
@@ -400,6 +439,7 @@
               <label class="field-group">
                 <span>Nota final</span>
                 <input
+                  class="form-control"
                   id="admin-grade-input"
                   type="number"
                   min="0"
@@ -412,6 +452,7 @@
               <label class="field-group">
                 <span>Observacoes do instrutor</span>
                 <textarea
+                  class="form-control"
                   id="admin-grade-notes"
                   rows="5"
                   placeholder="Comentarios, pendencias ou justificativa da nota."
