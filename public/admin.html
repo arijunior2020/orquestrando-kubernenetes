@@ -197,7 +197,7 @@
 
       <section class="dashboard-strip admin-strip" id="admin-metric-strip"></section>
 
-      <nav class="admin-nav card nav nav-pills nav-fill" id="admin-nav" aria-label="Seções do painel administrativo">
+      <nav class="admin-nav card nav nav-pills" id="admin-nav" aria-label="Seções do painel administrativo">
         <a class="admin-nav-link nav-link" data-admin-route="overview" href="/admin/overview">Resumo</a>
         <a class="admin-nav-link nav-link" data-admin-route="cohorts" href="/admin/cohorts">Turmas</a>
         <a class="admin-nav-link nav-link" data-admin-route="students" href="/admin/students">Alunos</a>
@@ -268,59 +268,85 @@
             <h2>Criar codigo da turma</h2>
           </div>
 
-          <form id="admin-cohort-form" class="grading-form" novalidate>
-            <label class="field-group">
-              <span>Codigo da turma</span>
-              <input
-                class="form-control"
-                id="admin-cohort-code"
-                type="text"
-                placeholder="Ex.: k8s-mar-2026"
-                autocomplete="off"
-              />
-            </label>
+          <p class="admin-management-intro">
+            Defina um código claro, título legível e a janela real de início e fim.
+            Essa configuração controla quando a turma aparece como aberta para o aluno.
+          </p>
 
-            <label class="field-group">
-              <span>Titulo da turma</span>
-              <input
-                class="form-control"
-                id="admin-cohort-title"
-                type="text"
-                placeholder="Ex.: Orquestracao Kubernetes - Marco 2026"
-                autocomplete="off"
-              />
-            </label>
-
-            <div class="field-grid">
+          <div class="admin-form-shell">
+            <form id="admin-cohort-form" class="grading-form" novalidate>
               <label class="field-group">
-                <span>Início do acesso</span>
-                <input class="form-control" id="admin-cohort-start" type="date" />
+                <span>Codigo da turma</span>
+                <input
+                  class="form-control"
+                  id="admin-cohort-code"
+                  type="text"
+                  placeholder="Ex.: k8s-mar-2026"
+                  autocomplete="off"
+                />
               </label>
 
               <label class="field-group">
-                <span>Fim do acesso</span>
-                <input class="form-control" id="admin-cohort-end" type="date" />
+                <span>Titulo da turma</span>
+                <input
+                  class="form-control"
+                  id="admin-cohort-title"
+                  type="text"
+                  placeholder="Ex.: Orquestracao Kubernetes - Marco 2026"
+                  autocomplete="off"
+                />
               </label>
-            </div>
 
-            <div class="form-actions">
-              <button class="primary-button wide" id="admin-cohort-submit" type="submit">
-                Salvar turma
-              </button>
-              <button
-                class="ghost-button wide"
-                id="admin-cohort-cancel"
-                type="button"
-                hidden
-              >
-                Cancelar edição
-              </button>
-            </div>
-            <p class="status-text muted" id="admin-cohort-status">
-              Somente turmas cadastradas aqui serao aceitas na entrada do aluno, respeitando o período de acesso.
-            </p>
-          </form>
+              <div class="field-grid">
+                <label class="field-group">
+                  <span>Início do acesso</span>
+                  <input class="form-control" id="admin-cohort-start" type="date" />
+                </label>
 
+                <label class="field-group">
+                  <span>Fim do acesso</span>
+                  <input class="form-control" id="admin-cohort-end" type="date" />
+                </label>
+              </div>
+
+              <div class="form-actions">
+                <button class="primary-button wide" id="admin-cohort-submit" type="submit">
+                  Salvar turma
+                </button>
+                <button
+                  class="ghost-button wide"
+                  id="admin-cohort-cancel"
+                  type="button"
+                  hidden
+                >
+                  Cancelar edição
+                </button>
+              </div>
+              <p class="status-text muted" id="admin-cohort-status">
+                Somente turmas cadastradas aqui serao aceitas na entrada do aluno, respeitando o período de acesso.
+              </p>
+            </form>
+
+            <aside class="admin-form-aside">
+              <article class="admin-note-card">
+                <span class="hero-label">Janela de acesso</span>
+                <strong>Controle quando a turma abre</strong>
+                <p>Se a turma começa depois, o aluno verá a data de abertura no login e não conseguirá entrar antes.</p>
+              </article>
+              <article class="admin-note-card">
+                <span class="hero-label">Padrão recomendado</span>
+                <strong>Código curto e título humano</strong>
+                <p>Use códigos compactos para autenticação e títulos claros para facilitar o filtro e a leitura no painel.</p>
+              </article>
+            </aside>
+          </div>
+
+          <div class="admin-manage-header">
+            <div>
+              <p class="eyebrow">Turmas cadastradas</p>
+              <h3>Janela, alunos e manutenção</h3>
+            </div>
+          </div>
           <div class="admin-manage-list" id="admin-cohort-manage-list"></div>
           <div class="pagination-bar" id="admin-cohort-pagination"></div>
         </section>
@@ -335,68 +361,88 @@
             <h2>Liberar acesso do estudante</h2>
           </div>
 
-          <form id="admin-student-form" class="grading-form" novalidate>
-            <label class="field-group">
-              <span>Nome do aluno</span>
-              <input
-                class="form-control"
-                id="admin-student-name"
-                type="text"
-                placeholder="Ex.: Maria Oliveira"
-                autocomplete="name"
-              />
-            </label>
+          <p class="admin-management-intro">
+            O aluno precisa existir aqui e estar vinculado a uma turma válida.
+            A autenticação só libera entrada quando a janela da turma estiver aberta.
+          </p>
 
-            <label class="field-group">
-              <span>E-mail do aluno</span>
-              <input
-                class="form-control"
-                id="admin-student-email"
-                type="email"
-                placeholder="aluno@exemplo.com"
-                autocomplete="email"
-              />
-            </label>
+          <div class="admin-form-shell">
+            <form id="admin-student-form" class="grading-form" novalidate>
+              <label class="field-group">
+                <span>Nome do aluno</span>
+                <input
+                  class="form-control"
+                  id="admin-student-name"
+                  type="text"
+                  placeholder="Ex.: Maria Oliveira"
+                  autocomplete="name"
+                />
+              </label>
 
-            <label class="field-group">
-              <span>Código da turma</span>
-              <input
-                class="form-control"
-                id="admin-student-cohort"
-                type="text"
-                placeholder="Ex.: k8s-mar-2026"
-                autocomplete="off"
-              />
-            </label>
+              <label class="field-group">
+                <span>E-mail do aluno</span>
+                <input
+                  class="form-control"
+                  id="admin-student-email"
+                  type="email"
+                  placeholder="aluno@exemplo.com"
+                  autocomplete="email"
+                />
+              </label>
 
-            <label class="field-group">
-              <span>Senha inicial</span>
-              <input
-                class="form-control"
-                id="admin-student-password"
-                type="password"
-                placeholder="Minimo de 6 caracteres"
-                autocomplete="new-password"
-              />
-            </label>
+              <label class="field-group">
+                <span>Código da turma</span>
+                <input
+                  class="form-control"
+                  id="admin-student-cohort"
+                  type="text"
+                  placeholder="Ex.: k8s-mar-2026"
+                  autocomplete="off"
+                />
+              </label>
 
-            <div class="form-actions">
-              <button class="primary-button wide" id="admin-student-submit" type="submit">
-                Salvar aluno
-              </button>
-              <button
-                class="ghost-button wide"
-                id="admin-student-cancel"
-                type="button"
-                hidden
-              >
-                Cancelar edição
-              </button>
-            </div>
-            <p class="status-text muted" id="admin-student-status">
-              O aluno só conseguirá entrar na home se existir aqui e estiver vinculado à turma.
-            </p>
-          </form>
+              <label class="field-group">
+                <span>Senha inicial</span>
+                <input
+                  class="form-control"
+                  id="admin-student-password"
+                  type="password"
+                  placeholder="Minimo de 6 caracteres"
+                  autocomplete="new-password"
+                />
+              </label>
+
+              <div class="form-actions">
+                <button class="primary-button wide" id="admin-student-submit" type="submit">
+                  Salvar aluno
+                </button>
+                <button
+                  class="ghost-button wide"
+                  id="admin-student-cancel"
+                  type="button"
+                  hidden
+                >
+                  Cancelar edição
+                </button>
+              </div>
+              <p class="status-text muted" id="admin-student-status">
+                O aluno só conseguirá entrar na home se existir aqui e estiver vinculado à turma.
+              </p>
+            </form>
+
+            <aside class="admin-form-aside">
+              <article class="admin-note-card">
+                <span class="hero-label">Acesso do aluno</span>
+                <strong>E-mail único e turma correta</strong>
+                <p>Confirme o código da turma antes de salvar. O vínculo incorreto impede o acesso ou mostra a turma errada.</p>
+              </article>
+              <article class="admin-note-card">
+                <span class="hero-label">Uso amanhã</span>
+                <strong>Fluxo mais seguro na operação</strong>
+                <p>Primeiro cadastre a turma, depois o aluno. Só então acompanhe labs, submissões e nota final no painel lateral.</p>
+              </article>
+            </aside>
+          </div>
         </section>
       </section>
 
