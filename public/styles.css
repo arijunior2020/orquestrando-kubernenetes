@@ -642,33 +642,20 @@ body::before {
 
 .admin-nav,
 .app-nav {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.75rem;
+  display: grid;
+  gap: 1rem;
+  align-content: start;
   padding: 1rem;
   margin-bottom: 1.5rem;
   position: sticky;
   top: 1rem;
   z-index: 8;
-  overflow-x: auto;
   scrollbar-width: none;
 }
 
 .admin-nav::-webkit-scrollbar,
 .app-nav::-webkit-scrollbar {
   display: none;
-}
-
-.admin-route-shell .route-hero-card,
-.admin-route-shell .quickstart-card {
-  margin-bottom: 0;
-}
-
-.admin-nav,
-.app-nav {
-  display: grid;
-  gap: 1rem;
-  align-content: start;
 }
 
 .admin-nav-copy,
@@ -678,24 +665,14 @@ body::before {
   padding: 0.25rem 0.15rem 0.55rem;
 }
 
-.app-nav-links {
-  display: grid;
-  gap: 0.65rem;
-}
-
-.app-nav-link {
-  justify-content: flex-start;
-  min-width: 0;
-  width: 100%;
-  border-radius: 18px;
-}
-
-.admin-nav-copy strong {
+.admin-nav-copy strong,
+.app-nav-copy strong {
   color: var(--ink);
   font-size: 1rem;
 }
 
-.admin-nav-links {
+.admin-nav-links,
+.app-nav-links {
   display: grid;
   gap: 0.65rem;
 }
@@ -742,14 +719,13 @@ body::before {
 
 .admin-nav-link,
 .app-nav-link {
-  display: inline-flex;
-  flex: 0 0 auto;
+  display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 2.75rem;
-  min-width: 8rem;
-  padding: 0.72rem 1rem;
-  border-radius: 999px;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
   border: 1px solid var(--stroke);
   background: rgba(255, 255, 255, 0.82);
   color: var(--ink);
@@ -761,14 +737,6 @@ body::before {
     color 180ms ease,
     border-color 180ms ease,
     box-shadow 180ms ease;
-}
-
-.admin-nav-link {
-  justify-content: flex-start;
-  min-width: 0;
-  width: 100%;
-  border-radius: 18px;
-  padding: 0.9rem 1rem;
 }
 
 .admin-nav-link:hover,
@@ -786,7 +754,9 @@ body::before {
 }
 
 .admin-nav.nav-pills .admin-nav-link.nav-link.active,
-.admin-nav.nav-pills .show > .admin-nav-link.nav-link {
+.admin-nav.nav-pills .show > .admin-nav-link.nav-link,
+.app-nav.nav-pills .app-nav-link.nav-link.active,
+.app-nav.nav-pills .show > .app-nav-link.nav-link {
   background: linear-gradient(135deg, #1f7a6d 0%, #14584f 100%);
   color: #fbf8f1;
   border-color: rgba(20, 88, 79, 0.58);
@@ -794,7 +764,9 @@ body::before {
 }
 
 .admin-nav.nav-pills .admin-nav-link.nav-link.active:hover,
-.admin-nav.nav-pills .show > .admin-nav-link.nav-link:hover {
+.admin-nav.nav-pills .show > .admin-nav-link.nav-link:hover,
+.app-nav.nav-pills .app-nav-link.nav-link.active:hover,
+.app-nav.nav-pills .show > .app-nav-link.nav-link:hover {
   color: #fbf8f1;
 }
 
