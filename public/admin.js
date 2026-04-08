@@ -1458,6 +1458,12 @@ const attachEventListeners = () => {
       closeAdminModal(null);
     }
   });
+  elements.modalForm.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+  elements.modalForm.addEventListener("focusin", (event) => {
+    event.stopPropagation();
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || !isAdminModalOpen()) {
       return;
