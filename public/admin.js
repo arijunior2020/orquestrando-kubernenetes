@@ -560,8 +560,7 @@ const openCohortEditModal = async (cohort) =>
         }),
       });
 
-      closeAdminModal(updated);
-      return false;
+      return updated;
     },
   });
 
@@ -621,8 +620,7 @@ const openStudentEditModal = async (studentSummary) =>
         }),
       });
 
-      closeAdminModal(updated);
-      return false;
+      return updated;
     },
   });
 
