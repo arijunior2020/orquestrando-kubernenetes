@@ -190,6 +190,52 @@ const formatCohortWindow = (cohort) => {
   return `Acesso: ${start} até ${end}`;
 };
 
+const getCohortAccessState = (cohort) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const start = cohort?.accessStartsAt ? new Date(`${cohort.accessStartsAt}T00:00:00`) : null;
+  const end = cohort?.accessEndsAt ? new Date(`${cohort.accessEndsAt}T00:00:00`) : null;
+
+  if (start && !Number.isNaN(start.getTime()) && today < start) {
+    return "upcoming";
+  }
+
+  if (end && !Number.isNaN(end.getTime()) && today > end) {
+    return "closed";
+  }
+
+  return "open";
+};
+
+const getCohortAccessTone = (status) => {
+  if (status === "open") {
+    return "success";
+  }
+
+  if (status === "upcoming") {
+    return "info";
+  }
+
+  return "neutral";
+};
+
+const getCohortAccessLabel = (status) => {
+  if (status === "open") {
+    return "Aberta";
+  }
+
+  if (status === "upcoming") {
+    return "Em breve";
+  }
+
+  if (status === "closed") {
+    return "Encerrada";
+  }
+
+  return "Indisponivel";
+};
+
 const formatGrade = (value) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "-";
@@ -910,11 +956,23 @@ const renderCohortManageList = () => {
 
   elements.cohortManageList.innerHTML = pagination.items
     .map(
-      (cohort) => `
+      (cohort) => {
+        const accessState = getCohortAccessState(cohort);
+        const accessTone = getCohortAccessTone(accessState);
+
+        return `
         <article class="admin-manage-item">
-          <div>
+          <div class="admin-manage-copy">
+            <div class="admin-manage-topline">
+              <span class="hero-label">${escapeHtml(cohort.code.toUpperCase())}</span>
+              <span class="timeline-status ${accessTone}">${escapeHtml(getCohortAccessLabel(accessState))}</span>
+            </div>
             <strong>${escapeHtml(cohort.title)}</strong>
-            <p>${escapeHtml(cohort.code.toUpperCase())} • ${cohort.studentCount} aluno(s) • ${escapeHtml(formatCohortWindow(cohort))}</p>
+            <p>${escapeHtml(formatCohortWindow(cohort))}</p>
+            <div class="admin-manage-meta">
+              <span>${cohort.studentCount} aluno(s)</span>
+              <span>Use este codigo no vinculo do estudante.</span>
+            </div>
           </div>
           <div class="admin-inline-actions">
             <button class="ghost-button button-compact" data-cohort-edit="${escapeHtml(cohort.code)}" type="button">
@@ -925,7 +983,8 @@ const renderCohortManageList = () => {
             </button>
           </div>
         </article>
-      `,
+      `;
+      },
     )
     .join("");
 
