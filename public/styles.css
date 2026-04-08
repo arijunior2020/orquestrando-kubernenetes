@@ -1831,7 +1831,7 @@ body::before {
     transform 220ms ease;
 }
 
-.modal-dialog {
+.custom-modal {
   position: fixed;
   inset: 0;
   z-index: 60;
@@ -1840,19 +1840,20 @@ body::before {
   padding: 1rem;
 }
 
-.modal-dialog[hidden] {
+.custom-modal[hidden] {
   display: none;
 }
 
-.modal-dialog::before {
+.custom-modal::before {
   content: "";
   position: absolute;
   inset: 0;
   background: rgba(28, 51, 47, 0.28);
   backdrop-filter: blur(10px);
+  pointer-events: none;
 }
 
-.modal-panel {
+.custom-modal-panel {
   position: relative;
   z-index: 1;
   width: min(34rem, calc(100vw - 2rem));
