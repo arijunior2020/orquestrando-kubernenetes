@@ -103,39 +103,39 @@ const elements = {
 const ADMIN_ROUTE_CONFIG = {
   overview: {
     path: "/admin/overview",
-    eyebrow: "Visão geral",
-    title: "Resumo da turma e da disciplina",
-    copy: "Acompanhe os indicadores principais, o foco da turma selecionada e o aluno atualmente em destaque.",
+    eyebrow: "Resumo",
+    title: "Resumo executivo da turma",
+    copy: "Acompanhe os indicadores principais, a turma selecionada e o aluno atualmente em destaque sem navegar por múltiplas telas.",
   },
   cohorts: {
     path: "/admin/cohorts",
     eyebrow: "Turmas",
-    title: "Gerenciar códigos e títulos das turmas",
+    title: "Cadastrar e ajustar janelas das turmas",
     copy: "Cadastre, revise e remova turmas. Somente códigos registrados aqui serão aceitos no acesso do aluno.",
   },
   students: {
     path: "/admin/students",
     eyebrow: "Alunos",
-    title: "Liberar e administrar o acesso dos estudantes",
-    copy: "Cadastre novos alunos, abra a lista paginada e use o modal de edição para manter os dados corretos.",
+    title: "Liberar acesso e manter dados dos estudantes",
+    copy: "Cadastre novos alunos, abra a lista paginada e use o modal de edição para manter nome, turma e credenciais corretos.",
   },
   grading: {
     path: "/admin/grading",
     eyebrow: "Notas",
-    title: "Lançar a nota final com contexto completo",
-    copy: "Selecione um aluno, confira o histórico da trilha e salve a avaliação final da disciplina.",
+    title: "Lancar a nota final com contexto completo",
+    copy: "Selecione um aluno, confira a trilha realizada e salve a avaliacao final da disciplina sem perder o contexto.",
   },
   labs: {
     path: "/admin/labs",
     eyebrow: "Labs",
     title: "Inspecionar progresso por unidade",
-    copy: "Veja o status de cada laboratório, os checkpoints validados e o ritmo de execução por aluno.",
+    copy: "Veja o status de cada laboratorio, os checkpoints validados e o ritmo de execucao por aluno.",
   },
   submissions: {
     path: "/admin/submissions",
-    eyebrow: "Submissões",
-    title: "Auditar o histórico de evidências",
-    copy: "Abra uma página focada apenas nas submissões para revisar score, horário e consistência das entregas.",
+    eyebrow: "Evidências",
+    title: "Auditar o historico de entregas",
+    copy: "Abra uma pagina focada nas submissões para revisar score, horario e consistencia das entregas.",
   },
 };
 

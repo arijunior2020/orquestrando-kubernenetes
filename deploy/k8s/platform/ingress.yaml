@@ -2,9 +2,14 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: kubeclass-web
+  namespace: platform
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
+  ingressClassName: traefik
   rules:
-    - http:
+    - host: kubeclass.online
+      http:
         paths:
           - path: /
             pathType: Prefix
@@ -13,3 +18,18 @@ spec:
                 name: kubeclass-web
                 port:
                   number: 80
+    - host: www.kubeclass.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kubeclass-web
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - kubeclass.online
+        - www.kubeclass.online
+      secretName: kubeclass-online-tls
