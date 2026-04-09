@@ -12,9 +12,39 @@ import (
 	"testing"
 
 	"github.com/arimateia-junior/orquestrando-kubernenetes/internal/content"
+	"github.com/arimateia-junior/orquestrando-kubernenetes/internal/labruntime"
 	"github.com/arimateia-junior/orquestrando-kubernenetes/internal/store"
 	"github.com/arimateia-junior/orquestrando-kubernenetes/internal/validation"
 )
+
+type stubRuntimeService struct {
+	enabled                   bool
+	deleteStudentNamespacesFn func(ctx context.Context, studentID int64) error
+}
+
+func (s *stubRuntimeService) Enabled() bool {
+	return s.enabled
+}
+
+func (s *stubRuntimeService) DisabledReason() string {
+	return ""
+}
+
+func (s *stubRuntimeService) EnsureLab(ctx context.Context, studentID int64, cohortCode, labID string) (labruntime.Session, error) {
+	return labruntime.Session{}, nil
+}
+
+func (s *stubRuntimeService) ServeTerminal(response http.ResponseWriter, request *http.Request, session labruntime.Session) error {
+	return nil
+}
+
+func (s *stubRuntimeService) DeleteStudentNamespaces(ctx context.Context, studentID int64) error {
+	if s.deleteStudentNamespacesFn == nil {
+		return nil
+	}
+
+	return s.deleteStudentNamespacesFn(ctx, studentID)
+}
 
 func TestCourseEndpointReturnsPayload(t *testing.T) {
 	t.Parallel()
@@ -574,7 +604,53 @@ func TestAdminStudentsEndpointRegistersStudent(t *testing.T) {
 	}
 }
 
+func TestAdminStudentsEndpointDeletesStudentAndNamespaces(t *testing.T) {
+	t.Parallel()
+
+	var deletedStudentID int64
+	server := newTestServerWithRuntime(t, &stubRuntimeService{
+		enabled: true,
+		deleteStudentNamespacesFn: func(ctx context.Context, studentID int64) error {
+			deletedStudentID = studentID
+			return nil
+		},
+	})
+	createTestCohort(t, server, "turma-auth", "Turma Auth")
+	registered := createTestStudent(t, server, "Maria Oliveira", "maria@example.com", "turma-auth", fixturePassword("student"))
+	adminCookie := authenticateAdmin(t, server, "admin", fixturePassword("admin"))
+
+	body := mustJSON(t, map[string]int64{
+		"studentId": registered.Student.ID,
+	})
+	request := httptest.NewRequest(http.MethodDelete, "/api/admin/students", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(adminCookie)
+	response := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("esperava status 200 ao excluir aluno, recebeu %d", response.Code)
+	}
+
+	if deletedStudentID != registered.Student.ID {
+		t.Fatalf("esperava limpar namespaces do aluno %d, recebeu %d", registered.Student.ID, deletedStudentID)
+	}
+
+	if err := server.store.DeleteStudent(context.Background(), registered.Student.ID); err == nil {
+		t.Fatal("esperava aluno ja excluido do banco")
+	} else if !strings.Contains(err.Error(), "nao encontrado") {
+		t.Fatalf("erro inesperado ao confirmar exclusao do aluno: %v", err)
+	}
+}
+
 func newTestServer(t *testing.T) *Server {
+	t.Helper()
+
+	return newTestServerWithRuntime(t, nil)
+}
+
+func newTestServerWithRuntime(t *testing.T, runtimeSvc runtimeService) *Server {
 	t.Helper()
 
 	courseService, err := content.NewCourseService(filepath.Join("..", "..", "content", "course.json"))
@@ -592,7 +668,7 @@ func newTestServer(t *testing.T) *Server {
 		t.Fatalf("falha ao criar sqlite store: %v", err)
 	}
 
-	server, err := NewServer(filepath.Join("..", "..", "public"), courseService, validationService, sqliteStore, nil)
+	server, err := NewServer(filepath.Join("..", "..", "public"), courseService, validationService, sqliteStore, runtimeSvc)
 	if err != nil {
 		t.Fatalf("falha ao criar server: %v", err)
 	}

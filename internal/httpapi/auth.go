@@ -366,6 +366,13 @@ func (s *Server) handleAdminStudents(response http.ResponseWriter, request *http
 			return
 		}
 
+		if s.runtimeService != nil && s.runtimeService.Enabled() {
+			if err := s.runtimeService.DeleteStudentNamespaces(request.Context(), payload.StudentID); err != nil {
+				writeJSON(response, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+		}
+
 		if err := s.store.DeleteStudent(request.Context(), payload.StudentID); err != nil {
 			writeJSON(response, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
