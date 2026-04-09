@@ -28,7 +28,7 @@ import (
 
 const (
 	defaultNamespacePrefix = "kubeclass"
-	defaultToolboxImage    = "bitnami/kubectl:latest"
+	defaultToolboxImage    = "kubeclass-web-lab:latest"
 	defaultToolboxShell    = "/bin/sh"
 	toolboxPodName         = "toolbox"
 	toolboxServiceAccount  = "student-toolbox"

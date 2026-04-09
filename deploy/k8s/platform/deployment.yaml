@@ -31,7 +31,7 @@ spec:
             - name: LAB_NAMESPACE_PREFIX
               value: "kubeclass"
             - name: TOOLBOX_IMAGE
-              value: "bitnami/kubectl:latest"
+              value: "kubeclass-web-lab:pilot"
           ports:
             - containerPort: 3000
           volumeMounts:

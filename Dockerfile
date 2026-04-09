@@ -16,7 +16,14 @@ FROM alpine:3.20
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache \
+    bash \
+    ca-certificates \
+    curl \
+    jq \
+    kubectl \
+    nano \
+    vim
 
 COPY --from=builder /out/kubeclass-web /usr/local/bin/kubeclass-web
 COPY public ./public
