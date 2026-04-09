@@ -38,7 +38,7 @@ const (
 type Service struct {
 	enabled         bool
 	disabledReason  string
-	clientset       *kubernetes.Clientset
+	clientset       kubernetes.Interface
 	restConfig      *rest.Config
 	namespacePrefix string
 	toolboxImage    string
@@ -552,6 +552,39 @@ func (s *Service) StartNamespaceGC(ctx context.Context, interval, maxAge time.Du
 			}
 		}
 	}()
+}
+
+func (s *Service) DeleteStudentNamespaces(ctx context.Context, studentID int64) error {
+	if studentID <= 0 {
+		return fmt.Errorf("studentId invalido")
+	}
+
+	if !s.Enabled() {
+		return nil
+	}
+
+	namespaces, err := s.clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf(
+			"app.kubernetes.io/managed-by=kubeclass-web,kubeclass.io/student-id=%d",
+			studentID,
+		),
+	})
+	if err != nil {
+		return fmt.Errorf("falha ao listar namespaces do aluno: %w", err)
+	}
+
+	failures := make([]string, 0)
+	for _, ns := range namespaces.Items {
+		if err := s.purgeNamespace(ctx, ns.Name); err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", ns.Name, err))
+		}
+	}
+
+	if len(failures) > 0 {
+		return fmt.Errorf("falha ao remover namespaces do aluno: %s", strings.Join(failures, "; "))
+	}
+
+	return nil
 }
 
 func (s *Service) collectStaleNamespaces(ctx context.Context, maxAge time.Duration) {

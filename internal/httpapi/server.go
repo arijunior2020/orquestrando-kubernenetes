@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,13 +20,21 @@ import (
 	"github.com/arimateia-junior/orquestrando-kubernenetes/internal/validation"
 )
 
+type runtimeService interface {
+	Enabled() bool
+	DisabledReason() string
+	EnsureLab(ctx context.Context, studentID int64, cohortCode, labID string) (labruntime.Session, error)
+	ServeTerminal(response http.ResponseWriter, request *http.Request, session labruntime.Session) error
+	DeleteStudentNamespaces(ctx context.Context, studentID int64) error
+}
+
 type Server struct {
 	staticDir         string
 	fileServer        http.Handler
 	courseService     *content.CourseService
 	validationService *validation.Service
 	store             *store.SQLiteStore
-	runtimeService    *labruntime.Service
+	runtimeService    runtimeService
 }
 
 type validationRequest struct {
@@ -100,7 +109,7 @@ func NewServer(
 	courseService *content.CourseService,
 	validationService *validation.Service,
 	store *store.SQLiteStore,
-	runtimeService *labruntime.Service,
+	runtimeService runtimeService,
 ) (*Server, error) {
 	info, err := os.Stat(staticDir)
 	if err != nil {
