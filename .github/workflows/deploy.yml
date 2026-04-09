@@ -117,7 +117,9 @@ jobs:
           ssh -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "\
             sudo /usr/local/bin/k3s ctr images import /home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz && \
             kubectl set image deployment/kubeclass-web -n platform kubeclass-web=${{ env.IMAGE }} && \
+            kubectl set env deployment/kubeclass-web -n platform TOOLBOX_IMAGE=${{ env.IMAGE }} && \
             kubectl annotate deployment/kubeclass-web -n platform app.kubernetes.io/version=${{ github.sha }} --overwrite && \
             kubectl rollout status deployment/kubeclass-web -n platform && \
             kubectl get deployment kubeclass-web -n platform -o jsonpath='{.spec.template.spec.containers[0].image}{\"\n\"}' && \
+            kubectl get deployment kubeclass-web -n platform -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name==\"TOOLBOX_IMAGE\")].value}{\"\n\"}' && \
             kubectl get pods -n platform"

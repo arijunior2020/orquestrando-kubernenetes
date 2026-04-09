@@ -14,6 +14,7 @@ Base inicial da plataforma web da sua disciplina de Orquestracao de Kubernetes, 
 - conteudo dos labs desacoplado em JSON;
 - validacao de manifests orientada por regras;
 - Dockerfile para empacotar a plataforma.
+- imagem do toolbox com `kubectl`, `nano` e `vim` para os labs.
 - estrutura inicial do piloto `EC2 + k3s`.
 
 ## Estrutura principal
@@ -66,6 +67,8 @@ docker run -p 3000:3000 kubeclass-web-lab
 ```
 
 O banco local fica em `/app/data/kubeclass.db` no container.
+
+Quando o runtime real estiver habilitado, o pod `toolbox` pode reutilizar a mesma imagem da plataforma, desde que a tag configurada em `TOOLBOX_IMAGE` exista no cluster.
 
 ## O que a API expõe agora
 
