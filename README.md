@@ -14,7 +14,7 @@ Base inicial da plataforma web da sua disciplina de Orquestracao de Kubernetes, 
 - conteudo dos labs desacoplado em JSON;
 - validacao de manifests orientada por regras;
 - Dockerfile para empacotar a plataforma.
-- imagem do toolbox com `kubectl`, `nano` e `vim` para os labs.
+- imagem do toolbox com `kubectl`, `kubeconform`, `nano` e `vim` para os labs.
 - estrutura inicial do piloto `EC2 + k3s`.
 
 ## Estrutura principal
