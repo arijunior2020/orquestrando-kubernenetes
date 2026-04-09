@@ -14,6 +14,8 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o /out/kubeclass-web ./cmd/k
 
 FROM alpine:3.20
 
+ARG KUBECONFORM_VERSION=v0.7.0
+
 WORKDIR /app
 
 RUN apk add --no-cache \
@@ -23,7 +25,17 @@ RUN apk add --no-cache \
     jq \
     kubectl \
     nano \
-    vim
+    vim \
+  && arch="$(apk --print-arch)" \
+  && case "$arch" in \
+      x86_64) kubeconform_arch="amd64" ;; \
+      aarch64) kubeconform_arch="arm64" ;; \
+      *) echo "unsupported architecture for kubeconform: $arch" >&2; exit 1 ;; \
+    esac \
+  && curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-${kubeconform_arch}.tar.gz" -o /tmp/kubeconform.tar.gz \
+  && tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform \
+  && chmod +x /usr/local/bin/kubeconform \
+  && rm -f /tmp/kubeconform.tar.gz
 
 COPY --from=builder /out/kubeclass-web /usr/local/bin/kubeclass-web
 COPY public ./public
