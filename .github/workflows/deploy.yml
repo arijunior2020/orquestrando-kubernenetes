@@ -77,6 +77,10 @@ jobs:
           docker pull ${{ env.IMAGE }}
           docker save ${{ env.IMAGE }} | gzip > kubeclass-web-lab.tar.gz
 
+      - name: Prepare platform manifests tarball
+        run: |
+          tar -czf kubeclass-web-platform.tar.gz -C deploy/k8s platform
+
       - name: Setup SSH for remote deploy
         run: |
           if [ -z "${{ secrets.REMOTE_HOST }}" ]; then
@@ -112,14 +116,23 @@ jobs:
         run: |
           scp -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no kubeclass-web-lab.tar.gz ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz
 
+      - name: Copy platform manifests to remote host
+        run: |
+          scp -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no kubeclass-web-platform.tar.gz ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/home/${{ secrets.REMOTE_USER }}/kubeclass-web-platform.tar.gz
+
       - name: Import image and update deployment (remote)
         run: |
           ssh -i ~/.ssh/kubeclass-pilot-key.pem -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "\
             sudo /usr/local/bin/k3s ctr images import /home/${{ secrets.REMOTE_USER }}/kubeclass-web-lab.tar.gz && \
+            rm -rf /tmp/kubeclass-web-platform && \
+            mkdir -p /tmp/kubeclass-web-platform && \
+            tar -xzf /home/${{ secrets.REMOTE_USER }}/kubeclass-web-platform.tar.gz -C /tmp/kubeclass-web-platform && \
+            kubectl apply -k /tmp/kubeclass-web-platform/platform && \
             kubectl set image deployment/kubeclass-web -n platform kubeclass-web=${{ env.IMAGE }} && \
             kubectl set env deployment/kubeclass-web -n platform TOOLBOX_IMAGE=${{ env.IMAGE }} && \
             kubectl annotate deployment/kubeclass-web -n platform app.kubernetes.io/version=${{ github.sha }} --overwrite && \
             kubectl rollout status deployment/kubeclass-web -n platform && \
             kubectl get deployment kubeclass-web -n platform -o jsonpath='{.spec.template.spec.containers[0].image}{\"\n\"}' && \
             kubectl get deployment kubeclass-web -n platform -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name==\"TOOLBOX_IMAGE\")].value}{\"\n\"}' && \
+            kubectl auth can-i delete namespaces --as=system:serviceaccount:platform:kubeclass-web && \
             kubectl get pods -n platform"
