@@ -91,7 +91,9 @@ type SubmissionStatus struct {
 	BestValidation json.RawMessage
 }
 
-var ErrSubmissionLimitReached = errors.New("limite de 3 tentativas de entrega atingido")
+const SubmissionLimitPerLab = 20
+
+var ErrSubmissionLimitReached = errors.New(fmt.Sprintf("limite de %d tentativas de entrega atingido", SubmissionLimitPerLab))
 
 type AdminCohortSummary struct {
 	ID             int64  `json:"id"`
@@ -874,7 +876,7 @@ func (s *SQLiteStore) CreateSubmission(ctx context.Context, params SubmissionPar
 		return fmt.Errorf("falha ao verificar limite de submissao: %w", err)
 	}
 
-	if count >= 3 {
+	if count >= SubmissionLimitPerLab {
 		return ErrSubmissionLimitReached
 	}
 

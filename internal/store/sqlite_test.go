@@ -158,7 +158,8 @@ func TestSQLiteStoreSubmissionLimitAndBestScore(t *testing.T) {
 		t.Fatalf("falha ao salvar workspace: %v", err)
 	}
 
-	for i, score := range []int{60, 70, 80} {
+	for i := 0; i < SubmissionLimitPerLab; i++ {
+		score := 60 + i
 		currentValidation, _ := json.Marshal(map[string]any{"labId": "lab-1", "score": score, "allPassed": score == 100})
 		if err := store.CreateSubmission(context.Background(), SubmissionParams{
 			StudentID:  dashboard.Student.ID,
@@ -193,8 +194,8 @@ func TestSQLiteStoreSubmissionLimitAndBestScore(t *testing.T) {
 		t.Fatal("esperava workspace lab-1 no dashboard")
 	}
 
-	if dashboardWorkspace.SubmissionCount != 3 {
-		t.Fatalf("esperava 3 tentativas no dashboard, recebeu %d", dashboardWorkspace.SubmissionCount)
+	if dashboardWorkspace.SubmissionCount != SubmissionLimitPerLab {
+		t.Fatalf("esperava %d tentativas no dashboard, recebeu %d", SubmissionLimitPerLab, dashboardWorkspace.SubmissionCount)
 	}
 
 	var bestValidation struct {
@@ -204,8 +205,9 @@ func TestSQLiteStoreSubmissionLimitAndBestScore(t *testing.T) {
 		t.Fatalf("falha ao ler melhor validacao do dashboard: %v", err)
 	}
 
-	if bestValidation.Score != 80 {
-		t.Fatalf("esperava melhor validacao 80 no dashboard, recebeu %d", bestValidation.Score)
+	expectedBestScore := 60 + SubmissionLimitPerLab - 1
+	if bestValidation.Score != expectedBestScore {
+		t.Fatalf("esperava melhor validacao %d no dashboard, recebeu %d", expectedBestScore, bestValidation.Score)
 	}
 
 	adminDetail, err := store.LoadAdminStudentDetail(context.Background(), dashboard.Student.ID, "turma-a")
@@ -218,12 +220,12 @@ func TestSQLiteStoreSubmissionLimitAndBestScore(t *testing.T) {
 	}
 
 	workspace := adminDetail.Workspaces[0]
-	if workspace.SubmissionCount != 3 {
-		t.Fatalf("esperava 3 submissoes no status, recebeu %d", workspace.SubmissionCount)
+	if workspace.SubmissionCount != SubmissionLimitPerLab {
+		t.Fatalf("esperava %d submissoes no status, recebeu %d", SubmissionLimitPerLab, workspace.SubmissionCount)
 	}
 
-	if workspace.ValidationScore != 80 {
-		t.Fatalf("esperava melhor score 80, recebeu %d", workspace.ValidationScore)
+	if workspace.ValidationScore != expectedBestScore {
+		t.Fatalf("esperava melhor score %d, recebeu %d", expectedBestScore, workspace.ValidationScore)
 	}
 }
 

@@ -328,7 +328,7 @@ const GUIDE_STREAM_PATTERN = /\s-w(?:\s|$)|\blogs\s+-f\b/;
 const TERMINAL_PROMPT_PATTERN = /(?:^|\r?\n)[^\r\n]*[$#] $/m;
 const TERMINAL_FAILURE_PATTERN =
   /\b(error:|forbidden|not found|unable to|failed\b|panic:|invalid\b|timeout\b)\b/i;
-const MAX_SUBMISSIONS_PER_LAB = 3;
+const MAX_SUBMISSIONS_PER_LAB = 20;
 const MANUAL_PROGRESS_RULES = {};
 
 const state = {
@@ -2455,7 +2455,7 @@ const attachEventListeners = () => {
       const message = normalizeErrorMessage(error, "Nao foi possivel validar a entrega agora.");
       setEditorStatus(message, "danger");
       showToast(message, "danger");
-      if (/limite de 3 tentativas/i.test(message) && state.student?.id) {
+      if (/limite de \d+ tentativas/i.test(message) && state.student?.id) {
         try {
           await refreshDashboard();
           render();

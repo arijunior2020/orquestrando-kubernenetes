@@ -223,7 +223,7 @@ func (s *Server) handleValidate(response http.ResponseWriter, request *http.Requ
 		}
 	}
 
-	if submissionStatus.Count >= 3 {
+	if submissionStatus.Count >= store.SubmissionLimitPerLab {
 		if err := s.store.SaveWorkspace(request.Context(), store.SaveWorkspaceParams{
 			StudentID:            principal.Student.ID,
 			LabID:                payload.LabID,
@@ -237,7 +237,7 @@ func (s *Server) handleValidate(response http.ResponseWriter, request *http.Requ
 			return
 		}
 
-		message := "limite de 3 tentativas de entrega atingido"
+		message := fmt.Sprintf("limite de %d tentativas de entrega atingido", store.SubmissionLimitPerLab)
 		if submissionStatus.BestScore > 0 {
 			message = fmt.Sprintf("%s. Melhor nota registrada: %d%%.", message, submissionStatus.BestScore)
 		}

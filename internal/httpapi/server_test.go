@@ -377,7 +377,11 @@ func TestValidateEndpointPreservesBestScoreWhenSubmissionLimitIsReached(t *testi
 		return response
 	}
 
-	for attempt, body := range [][]byte{validBody, invalidBody, invalidBody} {
+	for attempt := 0; attempt < store.SubmissionLimitPerLab; attempt++ {
+		body := invalidBody
+		if attempt == 0 {
+			body = validBody
+		}
 		response := postValidation(body)
 		if response.Code != http.StatusOK {
 			t.Fatalf("esperava status 200 na tentativa %d, recebeu %d", attempt+1, response.Code)
@@ -422,8 +426,8 @@ func TestValidateEndpointPreservesBestScoreWhenSubmissionLimitIsReached(t *testi
 		t.Fatal("esperava workspace lab-1 no dashboard")
 	}
 
-	if workspace.SubmissionCount != 3 {
-		t.Fatalf("esperava 3 submissoes registradas, recebeu %d", workspace.SubmissionCount)
+	if workspace.SubmissionCount != store.SubmissionLimitPerLab {
+		t.Fatalf("esperava %d submissoes registradas, recebeu %d", store.SubmissionLimitPerLab, workspace.SubmissionCount)
 	}
 
 	if workspace.Validation["score"].(float64) != 100 {
